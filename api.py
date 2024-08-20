@@ -1,3 +1,15 @@
+# This software is provided "as is", without warranty of any kind,
+# express or implied, including but not limited to the warranties
+# of merchantability, fitness for a particular purpose and
+# noninfringement. In no even shall the authors or copyright
+# holders be liable for any claim, damages, or other liability,
+# whether in an action of contract, tort or otherwise, arising
+# from, out of or in connection with the software or the use or
+# other dealings in the software.
+
+# This module handles the JSON API requests for the node and RPC
+# users (when HTTP or WS is enabled) to interact with the blockchain
+
 from flask import Flask, jsonify, request
 import json
 from server import blockchain
