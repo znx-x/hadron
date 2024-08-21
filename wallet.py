@@ -1,7 +1,7 @@
 # This software is provided "as is", without warranty of any kind,
 # express or implied, including but not limited to the warranties
 # of merchantability, fitness for a particular purpose and
-# noninfringement. In no even shall the authors or copyright
+# noninfringement. In no event shall the authors or copyright
 # holders be liable for any claim, damages, or other liability,
 # whether in an action of contract, tort or otherwise, arising
 # from, out of or in connection with the software or the use or
@@ -13,6 +13,10 @@
 from cryptography import Qhash3512
 import os
 import json
+from nacl.encoding import HexEncoder
+from nacl.signing import SigningKey, VerifyKey
+from nacl.secret import SecretBox
+from nacl.utils import random
 
 class Wallet:
     def __init__(self, wallet_dir="wallets"):
@@ -20,35 +24,89 @@ class Wallet:
         if not os.path.exists(wallet_dir):
             os.makedirs(wallet_dir)
 
-    def create_wallet(self):
+    def generate_key_pair(self):
+        """Generates a new private and public key pair using Qhash3512."""
         private_key, public_key = Qhash3512.generate_key_pair()
+        return private_key, public_key
+
+    def create_wallet(self):
+        """Creates a new wallet with a generated key pair."""
+        private_key, public_key = self.generate_key_pair()
         wallet_data = {
-            'public_key': public_key.encode().hex(),
-            'private_key': private_key.encode().hex()
+            'public_key': public_key.encode(HexEncoder).decode('utf-8'),
+            'private_key': private_key.encode(HexEncoder).decode('utf-8')
         }
         self.save_wallet(wallet_data)
         return wallet_data
 
     def save_wallet(self, wallet_data):
+        """Saves the wallet data to a file, encrypting the private key."""
         wallet_filename = f"{wallet_data['public_key'][:8]}.json"
         wallet_filepath = os.path.join(self.wallet_dir, wallet_filename)
-        with open(wallet_filepath, 'w') as wallet_file:
-            json.dump(wallet_data, wallet_file)
-        print(f"Wallet saved at {wallet_filepath}")
+        encrypted_private_key = self.encrypt_private_key(wallet_data['private_key'])
+        wallet_data['private_key'] = encrypted_private_key
+        try:
+            with open(wallet_filepath, 'w') as wallet_file:
+                json.dump(wallet_data, wallet_file)
+            print(f"Wallet saved at {wallet_filepath}")
+        except IOError as e:
+            raise IOError(f"Failed to save wallet: {e}")
 
     def load_wallet(self, public_key):
+        """Loads the wallet data from a file and decrypts the private key."""
         wallet_filename = f"{public_key[:8]}.json"
         wallet_filepath = os.path.join(self.wallet_dir, wallet_filename)
         if os.path.exists(wallet_filepath):
-            with open(wallet_filepath, 'r') as wallet_file:
-                wallet_data = json.load(wallet_file)
-            return wallet_data
-        return None
+            try:
+                with open(wallet_filepath, 'r') as wallet_file:
+                    wallet_data = json.load(wallet_file)
+                wallet_data['private_key'] = self.decrypt_private_key(wallet_data['private_key'])
+                return wallet_data
+            except IOError as e:
+                raise IOError(f"Failed to load wallet: {e}")
+            except json.JSONDecodeError:
+                raise ValueError("Corrupted wallet file.")
+        else:
+            raise FileNotFoundError(f"Wallet file not found for public key: {public_key}")
 
-# Example usage
-if __name__ == "__main__":
-    wallet = Wallet()
-    new_wallet = wallet.create_wallet()
-    print(f"New Wallet: {new_wallet}")
-    loaded_wallet = wallet.load_wallet(new_wallet['public_key'])
-    print(f"Loaded Wallet: {loaded_wallet}")
+    def list_wallets(self):
+        """Lists all wallets stored in the wallet directory."""
+        return [f.split('.')[0] for f in os.listdir(self.wallet_dir) if f.endswith('.json')]
+
+    def sign_transaction(self, private_key_hex, data):
+        """Signs transaction data using the private key."""
+        try:
+            private_key = SigningKey(private_key_hex, encoder=HexEncoder)
+            signature = Qhash3512.sign_data(private_key, data)
+            return signature
+        except Exception as e:
+            raise ValueError(f"Failed to sign transaction: {e}")
+
+    def encrypt_private_key(self, private_key_hex):
+        """Encrypts the private key for secure storage."""
+        try:
+            key = random(SecretBox.KEY_SIZE)
+            box = SecretBox(key)
+            encrypted = box.encrypt(private_key_hex.encode('utf-8'), encoder=HexEncoder)
+            return encrypted.decode('utf-8')
+        except Exception as e:
+            raise ValueError(f"Failed to encrypt private key: {e}")
+
+    def decrypt_private_key(self, encrypted_private_key):
+        """Decrypts the private key for use."""
+        try:
+            key = random(SecretBox.KEY_SIZE)  # This key would need to be securely stored/retrieved
+            box = SecretBox(key)
+            decrypted = box.decrypt(encrypted_private_key.encode('utf-8'), encoder=HexEncoder)
+            return decrypted.decode('utf-8')
+        except Exception as e:
+            raise ValueError(f"Failed to decrypt private key: {e}")
+
+    def get_public_key(self, private_key_hex):
+        """Derives the public key from the given private key."""
+        try:
+            private_key = SigningKey(private_key_hex, encoder=HexEncoder)
+            public_key = private_key.verify_key
+            return public_key.encode(HexEncoder).decode('utf-8')
+        except Exception as e:
+            raise ValueError(f"Failed to derive public key: {e}")

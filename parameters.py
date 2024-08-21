@@ -33,6 +33,7 @@ parameters = {
     "host": "0.0.0.0",
     "port": 5000,
     "log_file": "blockchain.log",
+    "miner_wallet_address": "0000000000000000000000000000000000000000",  # Default to the zero address
     
     # Node storage settings
     "node_storage_full": 0,  # Number of blocks stored by FULL nodes
@@ -79,6 +80,7 @@ def override_with_cli_args():
     parser.add_argument("--log_file", help="Log file path")
     parser.add_argument("--network_id", help="Network ID", type=int)
     parser.add_argument("--block_reward", help="Block reward", type=int)
+    parser.add_argument("--miner_wallet_address", help="Miner wallet address")
 
     args = parser.parse_args()
     
@@ -95,6 +97,8 @@ def override_with_cli_args():
         parameters["network_id"] = args.network_id
     if args.block_reward:
         parameters["block_reward"] = args.block_reward
+    if args.miner_wallet_address:
+        parameters["miner_wallet_address"] = args.miner_wallet_address
 
 # Initialize Configuration
 load_config_from_file()
