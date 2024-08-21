@@ -7,52 +7,53 @@
 # from, out of or in connection with the software or the use or
 # other dealings in the software.
 
-import signal
 import threading
+import logging
+from node import Blockchain
 from network import P2PNetwork
 from api import create_app
-from node import Blockchain
-from parameters import parameters
+import signal
 import sys
 
-# Event to signal shutdown
-shutdown_event = threading.Event()
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
+
+# Initialize the blockchain
+blockchain = Blockchain()
+
+def start_node():
+    # Start the blockchain node
+    logging.info("Starting blockchain node...")
+    blockchain.run_node()
 
 def start_network():
-    try:
-        p2p_network = P2PNetwork()
-        p2p_network.start_server()
-        while not shutdown_event.is_set():
-            # Accept peers or perform network operations
-            pass
-    except RuntimeError:
-        print("RuntimeError caught during shutdown.")
-    finally:
-        p2p_network.shutdown()
+    # Start the P2P network
+    logging.info("Starting P2P network...")
+    p2p_network = P2PNetwork(host='0.0.0.0', port=5001)
+    p2p_network.start_server()
 
-def signal_handler(sig, frame):
-    print("Signal received, shutting down...")
-    shutdown_event.set()
+def start_api():
+    # Start the Flask API server
+    logging.info("Starting API server...")
+    app = create_app(blockchain)
+    app.run(host='0.0.0.0', port=5000)
+
+def signal_handler(signal, frame):
+    logging.info("Shutdown signal received. Stopping all threads...")
+    # Perform any cleanup tasks here
     sys.exit(0)
 
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
+if __name__ == "__main__":
+    # Register signal handler for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
-# Start your blockchain node and network
-blockchain = Blockchain()
-network_thread = threading.Thread(target=start_network)
-network_thread.start()
+    # Start node, networking, and API server in separate threads
+    logging.info("Initializing...")
+    threading.Thread(target=start_node).start()
+    threading.Thread(target=start_network).start()
+    threading.Thread(target=start_api).start()
 
-# Start the API server
-app = create_app(blockchain)
-api_thread = threading.Thread(target=lambda: app.run(host=parameters['host'], port=parameters['port']))
-api_thread.start()
-
-try:
-    # Wait for the network and API threads to finish before exiting
-    network_thread.join()
-    api_thread.join()
-except KeyboardInterrupt:
-    print("Keyboard interrupt received, exiting.")
-    shutdown_event.set()
-    sys.exit(0)
+    # Keep the main thread alive to listen for shutdown signals
+    while True:
+        signal.pause()
