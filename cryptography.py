@@ -8,18 +8,21 @@
 # other dealings in the software.
 
 # This module contains the Qhash3512 cryptographic algorithm and
-# handles signature hash inputs and outputs.
+# handles signature, hash inputs, and outputs.
 
 from Crypto.Hash import SHA3_512
 from nacl.signing import SigningKey, VerifyKey
+from nacl.public import PrivateKey, PublicKey, Box
 
 class Qhash3512:
     @staticmethod
-    def generate_hash(data: str) -> str:
-        """Generates a quantum-resistant hash of the input data using Qhash3512 (SHA3-512)."""
+    def generate_hash(data: str, truncate_to: int = None) -> str:
+        """Generates a quantum-resistant hash of the input data using Qhash3512 (SHA3-512).
+        Optionally truncates the hash to the specified number of characters."""
         hasher = SHA3_512.new()
         hasher.update(data.encode('utf-8'))
-        return hasher.hexdigest()
+        hash_value = hasher.hexdigest()
+        return hash_value[:truncate_to] if truncate_to else hash_value
 
     @staticmethod
     def generate_key_pair():
@@ -29,6 +32,11 @@ class Qhash3512:
         return private_key, public_key
 
     @staticmethod
+    def public_key_to_address(public_key: VerifyKey, address_length: int = 40) -> str:
+        """Converts a public key to a blockchain address by hashing it and truncating it to the desired length."""
+        return Qhash3512.generate_hash(public_key.encode().hex(), truncate_to=address_length)
+
+    @staticmethod
     def sign_data(private_key: SigningKey, data: str) -> str:
         """Generates a quantum-resistant signature for the given data using the private key."""
         signed = private_key.sign(data.encode('utf-8'))
@@ -36,29 +44,40 @@ class Qhash3512:
 
     @staticmethod
     def verify_signature(public_key: VerifyKey, data: str, signature: str) -> bool:
-        """Verifies a quantum-resistant signature using the public key."""
+        """Verifies a quantum-resistant signature using the public key.
+        Returns True if the signature is valid, False otherwise, and logs the error if verification fails."""
         try:
             public_key.verify(data.encode('utf-8'), bytes.fromhex(signature))
             return True
-        except:
+        except Exception as e:
+            print(f"Signature verification failed: {e}")
             return False
 
-# Example usage
-if __name__ == "__main__":
-    # Generate a new key pair
-    private_key, public_key = Qhash3512.generate_key_pair()
+    @staticmethod
+    def hash_transaction(transaction_data: dict) -> str:
+        """Generates a hash for a transaction by serializing the transaction data and hashing it."""
+        # Assuming the transaction_data dictionary is serialized to a JSON string
+        serialized_data = json.dumps(transaction_data, sort_keys=True)
+        return Qhash3512.generate_hash(serialized_data)
 
-    # Example data
-    data = "This is a sample transaction"
+    @staticmethod
+    def hash_block(block_data: dict) -> str:
+        """Generates a hash for a block by serializing the block data and hashing it."""
+        # Assuming the block_data dictionary is serialized to a JSON string
+        serialized_data = json.dumps(block_data, sort_keys=True)
+        return Qhash3512.generate_hash(serialized_data)
 
-    # Generate hash
-    hash_value = Qhash3512.generate_hash(data)
-    print(f"Hash: {hash_value}")
+    @staticmethod
+    def encrypt_data(public_key: PublicKey, data: str) -> str:
+        """Encrypts data using the recipient's public key."""
+        box = Box(PrivateKey.generate(), public_key)
+        encrypted = box.encrypt(data.encode('utf-8'))
+        return encrypted.hex()
 
-    # Sign the data
-    signature = Qhash3512.sign_data(private_key, data)
-    print(f"Signature: {signature}")
-
-    # Verify the signature
-    is_valid = Qhash3512.verify_signature(public_key, data, signature)
-    print(f"Signature valid: {is_valid}")
+    @staticmethod
+    def decrypt_data(private_key: PrivateKey, encrypted_data: str) -> str:
+        """Decrypts data using the recipient's private key."""
+        box = Box(private_key, PublicKey(private_key.public_key.encode()))
+        decrypted = box.decrypt(bytes.fromhex(encrypted_data))
+        return decrypted.decode('utf-8')
+    
