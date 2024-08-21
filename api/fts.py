@@ -8,71 +8,195 @@
 # other dealings in the software.
 
 from flask import Blueprint, request, jsonify
-from server import blockchain
-from wallet import Wallet
+from blockchain.fts import FungibleToken
 
 fts_bp = Blueprint('fts', __name__)
 
-# Create Token
+# This is a temporary storage for tokens, in a real-world scenario this should be managed by the blockchain state.
+tokens = {}
+
+# Create a new fungible token
 @fts_bp.route('/create', methods=['POST'])
 def create_token():
-    data = request.json
+    data = request.get_json()
     name = data.get('name')
     symbol = data.get('symbol')
-    total_supply = data.get('total_supply')
+    initial_supply = data.get('initial_supply', 0)
+    max_supply = data.get('max_supply')
+    mintable = data.get('mintable', True)
+    pausable = data.get('pausable', True)
     owner = data.get('owner')
 
-    if not name or not symbol or not total_supply or not owner:
-        return jsonify({'error': 'Name, symbol, total supply, and owner address are required'}), 400
+    token = FungibleToken(name, symbol, initial_supply, max_supply, mintable, pausable, owner)
+    tokens[symbol] = token
+    return jsonify({"message": f"Token {name} ({symbol}) created successfully.", "total_supply": token.total_supply}), 201
 
-    token_address = blockchain.create_token(name, symbol, total_supply, owner)
-    return jsonify({'token_address': token_address, 'status': 'Token created successfully'})
-
-# Transfer Tokens
-@fts_bp.route('/transfer', methods=['POST'])
-def transfer_tokens():
-    data = request.json
-    token_address = data.get('token_address')
-    sender = data.get('sender')
-    recipient = data.get('recipient')
+# Mint new tokens
+@fts_bp.route('/mint', methods=['POST'])
+def mint_tokens():
+    data = request.get_json()
+    symbol = data.get('symbol')
+    to = data.get('to')
     amount = data.get('amount')
 
-    if not token_address or not sender or not recipient or not amount:
-        return jsonify({'error': 'Token address, sender, recipient, and amount are required'}), 400
+    token = tokens.get(symbol)
+    if not token:
+        return jsonify({"error": "Token not found"}), 404
 
-    transfer_status = blockchain.transfer_tokens(token_address, sender, recipient, amount)
-    if transfer_status:
-        return jsonify({'status': 'Transfer successful'})
-    return jsonify({'error': 'Transfer failed'}), 400
+    try:
+        token.mint(to, amount)
+        return jsonify({"message": f"{amount} tokens minted to {to}.", "total_supply": token.total_supply})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
-# Check Balance
-@fts_bp.route('/balance/<token_address>/<account>', methods=['GET'])
-def check_balance(token_address, account):
-    balance = blockchain.get_token_balance(token_address, account)
-    if balance is not None:
-        return jsonify({'balance': balance})
-    return jsonify({'error': 'Account or token not found'}), 404
+# Transfer tokens
+@fts_bp.route('/transfer', methods=['POST'])
+def transfer_tokens():
+    data = request.get_json()
+    symbol = data.get('symbol')
+    from_address = data.get('from')
+    to_address = data.get('to')
+    amount = data.get('amount')
 
-# Get Token Info
-@fts_bp.route('/info/<token_address>', methods=['GET'])
-def get_token_info(token_address):
-    token_info = blockchain.get_token_info(token_address)
-    if token_info:
-        return jsonify(token_info)
-    return jsonify({'error': 'Token not found'}), 404
+    token = tokens.get(symbol)
+    if not token:
+        return jsonify({"error": "Token not found"}), 404
 
-# Transfer Token Ownership
-@fts_bp.route('/transfer_ownership', methods=['POST'])
-def transfer_token_ownership():
-    data = request.json
-    token_address = data.get('token_address')
-    current_owner = data.get('current_owner')
+    try:
+        token.transfer(from_address, to_address, amount)
+        return jsonify({"message": f"{amount} tokens transferred from {from_address} to {to_address}."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Burn tokens
+@fts_bp.route('/burn', methods=['POST'])
+def burn_tokens():
+    data = request.get_json()
+    symbol = data.get('symbol')
+    from_address = data.get('from')
+    amount = data.get('amount')
+
+    token = tokens.get(symbol)
+    if not token:
+        return jsonify({"error": "Token not found"}), 404
+
+    try:
+        token.burn(from_address, amount)
+        return jsonify({"message": f"{amount} tokens burned from {from_address}.", "total_supply": token.total_supply})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Get balance of an address
+@fts_bp.route('/balance', methods=['GET'])
+def get_balance():
+    symbol = request.args.get('symbol')
+    address = request.args.get('address')
+
+    token = tokens.get(symbol)
+    if not token:
+        return jsonify({"error": "Token not found"}), 404
+
+    balance = token.balance_of(address)
+    return jsonify({"address": address, "balance": balance})
+
+# Approve a spender
+@fts_bp.route('/approve', methods=['POST'])
+def approve_spender():
+    data = request.get_json()
+    symbol = data.get('symbol')
+    owner = data.get('owner')
+    spender = data.get('spender')
+    amount = data.get('amount')
+
+    token = tokens.get(symbol)
+    if not token:
+        return jsonify({"error": "Token not found"}), 404
+
+    try:
+        token.approve(owner, spender, amount)
+        return jsonify({"message": f"Approved {spender} to spend {amount} tokens on behalf of {owner}."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Get allowance
+@fts_bp.route('/allowance', methods=['GET'])
+def get_allowance():
+    symbol = request.args.get('symbol')
+    owner = request.args.get('owner')
+    spender = request.args.get('spender')
+
+    token = tokens.get(symbol)
+    if not token:
+        return jsonify({"error": "Token not found"}), 404
+
+    allowance = token.allowance(owner, spender)
+    return jsonify({"owner": owner, "spender": spender, "allowance": allowance})
+
+# Transfer tokens from an approved spender
+@fts_bp.route('/transfer-from', methods=['POST'])
+def transfer_from():
+    data = request.get_json()
+    symbol = data.get('symbol')
+    spender = data.get('spender')
+    from_address = data.get('from')
+    to_address = data.get('to')
+    amount = data.get('amount')
+
+    token = tokens.get(symbol)
+    if not token:
+        return jsonify({"error": "Token not found"}), 404
+
+    try:
+        token.transfer_from(spender, from_address, to_address, amount)
+        return jsonify({"message": f"{amount} tokens transferred from {from_address} to {to_address} by {spender}."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Transfer ownership of the token
+@fts_bp.route('/transfer-ownership', methods=['POST'])
+def transfer_ownership():
+    data = request.get_json()
+    symbol = data.get('symbol')
     new_owner = data.get('new_owner')
 
-    if not token_address or not current_owner or not new_owner:
-        return jsonify({'error': 'Token address, current owner, and new owner are required'}), 400
+    token = tokens.get(symbol)
+    if not token:
+        return jsonify({"error": "Token not found"}), 404
 
-    transfer_status = blockchain.transfer_token_ownership(token_address, current_owner, new_owner)
-    if transfer_status:
-        return jsonify({'status': 'Ownership transferred successfully'})
-    return jsonify({'error': 'Ownership transfer failed'}), 400
+    try:
+        token.transfer_ownership(new_owner)
+        return jsonify({"message": f"Ownership of token {symbol} transferred to {new_owner}."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Pause the token
+@fts_bp.route('/pause', methods=['POST'])
+def pause_token():
+    data = request.get_json()
+    symbol = data.get('symbol')
+
+    token = tokens.get(symbol)
+    if not token:
+        return jsonify({"error": "Token not found"}), 404
+
+    try:
+        token.pause()
+        return jsonify({"message": f"Token {symbol} paused."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Unpause the token
+@fts_bp.route('/unpause', methods=['POST'])
+def unpause_token():
+    data = request.get_json()
+    symbol = data.get('symbol')
+
+    token = tokens.get(symbol)
+    if not token:
+        return jsonify({"error": "Token not found"}), 404
+
+    try:
+        token.unpause()
+        return jsonify({"message": f"Token {symbol} unpaused."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400

@@ -8,69 +8,88 @@
 # other dealings in the software.
 
 from flask import Blueprint, request, jsonify
-from server import blockchain
-from wallet import Wallet
+from blockchain.nfts import NonFungibleToken
 
 nfts_bp = Blueprint('nfts', __name__)
 
-# Create NFT
-@nfts_bp.route('/create', methods=['POST'])
-def create_nft():
+# Example in-memory NFT collection for demonstration purposes
+nft_collection = NonFungibleToken(name="MyNFT", symbol="MNFT", owner="0x0")
+
+@nfts_bp.route('/mint', methods=['POST'])
+def mint_nft():
     data = request.json
-    name = data.get('name')
-    metadata = data.get('metadata')
-    owner = data.get('owner')
+    to = data['to']
+    token_id = data['token_id']
+    metadata = data.get('metadata', {})
+    try:
+        nft_collection.mint(to, token_id, metadata)
+        return jsonify({"status": "success", "message": "NFT minted successfully"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
-    if not name or not metadata or not owner:
-        return jsonify({'error': 'Name, metadata, and owner address are required'}), 400
-
-    token_id = blockchain.create_nft(name, metadata, owner)
-    return jsonify({'token_id': token_id, 'status': 'NFT created successfully'})
-
-# Transfer NFT
 @nfts_bp.route('/transfer', methods=['POST'])
 def transfer_nft():
     data = request.json
-    token_id = data.get('token_id')
-    sender = data.get('sender')
-    recipient = data.get('recipient')
+    from_address = data['from']
+    to_address = data['to']
+    token_id = data['token_id']
+    try:
+        nft_collection.transfer(from_address, to_address, token_id)
+        return jsonify({"status": "success", "message": "NFT transferred successfully"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
-    if not token_id or not sender or not recipient:
-        return jsonify({'error': 'Token ID, sender, and recipient are required'}), 400
-
-    transfer_status = blockchain.transfer_nft(token_id, sender, recipient)
-    if transfer_status:
-        return jsonify({'status': 'Transfer successful'})
-    return jsonify({'error': 'Transfer failed'}), 400
-
-# Get NFT Metadata
-@nfts_bp.route('/metadata/<token_id>', methods=['GET'])
-def get_nft_metadata(token_id):
-    metadata = blockchain.get_nft_metadata(token_id)
-    if metadata:
-        return jsonify({'metadata': metadata})
-    return jsonify({'error': 'NFT not found'}), 404
-
-# Check Ownership
-@nfts_bp.route('/owner/<token_id>', methods=['GET'])
-def check_ownership(token_id):
-    owner = blockchain.get_nft_owner(token_id)
-    if owner:
-        return jsonify({'owner': owner})
-    return jsonify({'error': 'NFT not found'}), 404
-
-# Transfer NFT Ownership
-@nfts_bp.route('/transfer_ownership', methods=['POST'])
-def transfer_nft_ownership():
+@nfts_bp.route('/approve', methods=['POST'])
+def approve_nft():
     data = request.json
-    token_id = data.get('token_id')
-    current_owner = data.get('current_owner')
-    new_owner = data.get('new_owner')
+    approved = data['approved']
+    token_id = data['token_id']
+    try:
+        nft_collection.approve(approved, token_id)
+        return jsonify({"status": "success", "message": "NFT approved successfully"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
-    if not token_id or not current_owner or not new_owner:
-        return jsonify({'error': 'Token ID, current owner, and new owner are required'}), 400
+@nfts_bp.route('/burn', methods=['POST'])
+def burn_nft():
+    data = request.json
+    token_id = data['token_id']
+    try:
+        nft_collection.burn(token_id)
+        return jsonify({"status": "success", "message": "NFT burned successfully"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
-    transfer_status = blockchain.transfer_nft_ownership(token_id, current_owner, new_owner)
-    if transfer_status:
-        return jsonify({'status': 'Ownership transferred successfully'})
-    return jsonify({'error': 'Ownership transfer failed'}), 400
+@nfts_bp.route('/owner', methods=['GET'])
+def owner_of_nft():
+    token_id = request.args.get('token_id')
+    owner = nft_collection.owner_of(token_id)
+    if owner:
+        return jsonify({"status": "success", "owner": owner}), 200
+    return jsonify({"status": "error", "message": "Token does not exist"}), 404
+
+@nfts_bp.route('/balance', methods=['GET'])
+def balance_of_nft():
+    owner = request.args.get('owner')
+    balance = nft_collection.balance_of(owner)
+    return jsonify({"status": "success", "balance": balance}), 200
+
+@nfts_bp.route('/metadata', methods=['GET'])
+def nft_metadata():
+    token_id = request.args.get('token_id')
+    metadata = nft_collection.token_metadata(token_id)
+    if metadata:
+        return jsonify({"status": "success", "metadata": metadata}), 200
+    return jsonify({"status": "error", "message": "Token does not exist"}), 404
+
+@nfts_bp.route('/transfer_from', methods=['POST'])
+def transfer_from_nft():
+    data = request.json
+    from_address = data['from']
+    to_address = data['to']
+    token_id = data['token_id']
+    try:
+        nft_collection.transfer_from(from_address, to_address, token_id)
+        return jsonify({"status": "success", "message": "NFT transferred successfully"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400

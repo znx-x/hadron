@@ -1,84 +1,112 @@
 # This software is provided "as is", without warranty of any kind,
 # express or implied, including but not limited to the warranties
 # of merchantability, fitness for a particular purpose and
-# noninfringement. In no even shall the authors or copyright
+# noninfringement. In no event shall the authors or copyright
 # holders be liable for any claim, damages, or other liability,
 # whether in an action of contract, tort or otherwise, arising
 # from, out of or in connection with the software or the use or
 # other dealings in the software.
 
-# This is the main wallet and node UI that can be used to start
-# your blockchain node and interact with the network.
-
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QLabel, QLineEdit, QTextEdit
-from PyQt5.QtCore import QProcess
+from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QVBoxLayout, QWidget, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMenuBar, QMenu
+from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt
 
-class QChainWallet(QMainWindow):
+class WalletUI(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.initUI()
+        self.setWindowTitle("Blockchain Wallet")
+        self.setGeometry(100, 100, 800, 600)
+        self.setWindowIcon(QIcon('wallet_icon.png'))
 
-    def initUI(self):
-        self.setWindowTitle('QChain Wallet')
+        self.init_ui()
 
-        self.wallet_label = QLabel('Your Wallet Address:', self)
-        self.wallet_input = QLineEdit(self)
-        self.wallet_input.setText("Your Wallet ID")
+    def init_ui(self):
+        self.create_menu_bar()
+        self.create_wallet_overview()
+        self.create_transactions_table()
+        self.create_network_status()
 
-        self.balance_label = QLabel('Balance: 0', self)
-
-        self.tx_recipient_label = QLabel('Recipient Address:', self)
-        self.tx_recipient_input = QLineEdit(self)
-
-        self.amount_label = QLabel('Amount:', self)
-        self.amount_input = QLineEdit(self)
-
-        self.tx_button = QPushButton('Send Transaction', self)
-        self.tx_button.clicked.connect(self.send_transaction)
-
-        self.mine_button = QPushButton('Mine New Block', self)
-        self.mine_button.clicked.connect(self.mine_block)
-
-        self.chain_view = QTextEdit(self)
-        self.chain_view.setReadOnly(True)
-
-        self.start_node_button = QPushButton('Start Node', self)
-        self.start_node_button.clicked.connect(self.start_node)
-
-        layout = QVBoxLayout()
-        layout.addWidget(self.wallet_label)
-        layout.addWidget(self.wallet_input)
-        layout.addWidget(self.balance_label)
-        layout.addWidget(self.tx_recipient_label)
-        layout.addWidget(self.tx_recipient_input)
-        layout.addWidget(self.amount_label)
-        layout.addWidget(self.amount_input)
-        layout.addWidget(self.tx_button)
-        layout.addWidget(self.mine_button)
-        layout.addWidget(self.chain_view)
-        layout.addWidget(self.start_node_button)
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(self.wallet_overview)
+        main_layout.addWidget(self.transactions_table)
+        main_layout.addWidget(self.network_status)
 
         container = QWidget()
-        container.setLayout(layout)
+        container.setLayout(main_layout)
         self.setCentralWidget(container)
 
-    def send_transaction(self):
-        # Implement transaction sending logic
-        pass
+    def create_menu_bar(self):
+        menu_bar = self.menuBar()
 
-    def mine_block(self):
-        # Implement mining logic
-        pass
+        file_menu = menu_bar.addMenu("&File")
+        exit_action = QAction(QIcon('exit.png'), 'Exit', self)
+        exit_action.setShortcut('Ctrl+Q')
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
 
-    def start_node(self):
-        process = QProcess(self)
-        process.start("python", ["server.py"])
-        self.chain_view.append("Node started...")
+        wallet_menu = menu_bar.addMenu("&Wallet")
+        new_wallet_action = QAction("New Wallet", self)
+        load_wallet_action = QAction("Load Wallet", self)
+        wallet_menu.addAction(new_wallet_action)
+        wallet_menu.addAction(load_wallet_action)
+
+        view_menu = menu_bar.addMenu("&View")
+        overview_action = QAction("Overview", self)
+        transactions_action = QAction("Transactions", self)
+        view_menu.addAction(overview_action)
+        view_menu.addAction(transactions_action)
+
+        help_menu = menu_bar.addMenu("&Help")
+        about_action = QAction("About", self)
+        help_menu.addAction(about_action)
+
+    def create_wallet_overview(self):
+        self.wallet_overview = QWidget()
+        layout = QVBoxLayout()
+
+        balance_label = QLabel("Balance:")
+        self.balance_amount = QLabel("0.00")
+
+        layout.addWidget(balance_label)
+        layout.addWidget(self.balance_amount)
+
+        self.wallet_overview.setLayout(layout)
+
+    def create_transactions_table(self):
+        self.transactions_table = QTableWidget()
+        self.transactions_table.setColumnCount(4)
+        self.transactions_table.setHorizontalHeaderLabels(["Date", "Type", "Amount", "Status"])
+        self.transactions_table.horizontalHeader().setStretchLastSection(True)
+
+        # Example data
+        example_data = [
+            {"date": "2024-08-21", "type": "Sent", "amount": "-10.00", "status": "Confirmed"},
+            {"date": "2024-08-20", "type": "Received", "amount": "25.00", "status": "Pending"},
+        ]
+        self.transactions_table.setRowCount(len(example_data))
+
+        for i, data in enumerate(example_data):
+            self.transactions_table.setItem(i, 0, QTableWidgetItem(data["date"]))
+            self.transactions_table.setItem(i, 1, QTableWidgetItem(data["type"]))
+            self.transactions_table.setItem(i, 2, QTableWidgetItem(data["amount"]))
+            self.transactions_table.setItem(i, 3, QTableWidgetItem(data["status"]))
+
+    def create_network_status(self):
+        self.network_status = QWidget()
+        layout = QVBoxLayout()
+
+        status_label = QLabel("Network Status:")
+        self.status_info = QLabel("Connected to 5 peers")
+
+        layout.addWidget(status_label)
+        layout.addWidget(self.status_info)
+
+        self.network_status.setLayout(layout)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    wallet = QChainWallet()
-    wallet.show()
+    wallet_ui = WalletUI()
+    wallet_ui.show()
     sys.exit(app.exec_())

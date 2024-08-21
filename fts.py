@@ -1,61 +1,90 @@
-# fts.py
 # This software is provided "as is", without warranty of any kind,
 # express or implied, including but not limited to the warranties
 # of merchantability, fitness for a particular purpose and
-# noninfringement. In no even shall the authors or copyright
+# noninfringement. In no event shall the authors or copyright
 # holders be liable for any claim, damages, or other liability,
 # whether in an action of contract, tort or otherwise, arising
 # from, out of or in connection with the software or the use or
 # other dealings in the software.
 
-# This module handles the creation and management of fungible tokens (FTs).
-
 class FungibleToken:
-    def __init__(self, name, symbol, initial_supply, decimals=18):
+    def __init__(self, name, symbol, initial_supply, max_supply=None, mintable=True, pausable=True, owner=None):
         self.name = name
         self.symbol = symbol
-        self.decimals = decimals
-        self.total_supply = initial_supply * (10 ** decimals)
-        self.balances = {}
+        self.total_supply = initial_supply
+        self.max_supply = max_supply if max_supply else float('inf')
+        self.mintable = mintable
+        self.pausable = pausable
+        self.owner = owner
+        self.balances = {owner: initial_supply}
+        self.allowances = {}  # To manage allowances for spending
+        self.paused = False
 
-    def mint(self, account, amount):
-        """Mint new tokens to a specified account."""
-        amount_with_decimals = amount * (10 ** self.decimals)
-        if account in self.balances:
-            self.balances[account] += amount_with_decimals
-        else:
-            self.balances[account] = amount_with_decimals
-        self.total_supply += amount_with_decimals
+    def mint(self, to, amount):
+        if not self.mintable:
+            raise Exception("Token is not mintable.")
+        if self.total_supply + amount > self.max_supply:
+            raise Exception("Minting exceeds max supply.")
+        if self.paused:
+            raise Exception("Token is paused.")
+        self.total_supply += amount
+        self.balances[to] = self.balances.get(to, 0) + amount
 
-    def transfer(self, sender, recipient, amount):
-        """Transfer tokens from one account to another."""
-        amount_with_decimals = amount * (10 ** self.decimals)
-        if sender not in self.balances or self.balances[sender] < amount_with_decimals:
-            return False  # Insufficient balance
-        self.balances[sender] -= amount_with_decimals
-        if recipient in self.balances:
-            self.balances[recipient] += amount_with_decimals
-        else:
-            self.balances[recipient] = amount_with_decimals
-        return True
+    def transfer(self, from_address, to_address, amount):
+        if self.paused:
+            raise Exception("Token is paused.")
+        if self.balances.get(from_address, 0) < amount:
+            raise Exception("Insufficient balance.")
+        self.balances[from_address] -= amount
+        self.balances[to_address] = self.balances.get(to_address, 0) + amount
 
-    def balance_of(self, account):
-        """Return the balance of a specified account."""
-        return self.balances.get(account, 0) / (10 ** self.decimals)
+    def burn(self, from_address, amount):
+        if self.balances.get(from_address, 0) < amount:
+            raise Exception("Insufficient balance.")
+        self.balances[from_address] -= amount
+        self.total_supply -= amount
 
-    def burn(self, account, amount):
-        """Burn (destroy) tokens from a specified account."""
-        amount_with_decimals = amount * (10 ** self.decimals)
-        if account not in self.balances or self.balances[account] < amount_with_decimals:
-            return False  # Insufficient balance
-        self.balances[account] -= amount_with_decimals
-        self.total_supply -= amount_with_decimals
-        return True
+    def balance_of(self, address):
+        return self.balances.get(address, 0)
 
-# Example usage
-if __name__ == "__main__":
-    token = FungibleToken("ExampleToken", "EXT", 1000)
-    token.mint("alice", 500)
-    token.transfer("alice", "bob", 100)
-    print(f"Alice's balance: {token.balance_of('alice')}")
-    print(f"Bob's balance: {token.balance_of('bob')}")
+    def approve(self, owner, spender, amount):
+        if owner not in self.allowances:
+            self.allowances[owner] = {}
+        self.allowances[owner][spender] = amount
+
+    def allowance(self, owner, spender):
+        return self.allowances.get(owner, {}).get(spender, 0)
+
+    def transfer_from(self, spender, from_address, to_address, amount):
+        if self.paused:
+            raise Exception("Token is paused.")
+        if self.allowance(from_address, spender) < amount:
+            raise Exception("Allowance exceeded.")
+        if self.balances.get(from_address, 0) < amount:
+            raise Exception("Insufficient balance.")
+        self.allowances[from_address][spender] -= amount
+        self.transfer(from_address, to_address, amount)
+
+    def transfer_ownership(self, new_owner):
+        if self.owner is None:
+            raise Exception("Token is not owned by anyone.")
+        self.owner = new_owner
+
+    def pause(self):
+        if not self.pausable:
+            raise Exception("Token is not pausable.")
+        self.paused = True
+
+    def unpause(self):
+        if not self.pausable:
+            raise Exception("Token is not pausable.")
+        self.paused = False
+
+    def total_supply(self):
+        return self.total_supply
+
+    def transfer_ownership(self, new_owner):
+        """Transfers ownership of the token to a new owner."""
+        if self.owner is None:
+            raise Exception("Token is not owned by anyone.")
+        self.owner = new_owner

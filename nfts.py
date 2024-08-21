@@ -1,55 +1,66 @@
 # This software is provided "as is", without warranty of any kind,
 # express or implied, including but not limited to the warranties
 # of merchantability, fitness for a particular purpose and
-# noninfringement. In no even shall the authors or copyright
+# noninfringement. In no event shall the authors or copyright
 # holders be liable for any claim, damages, or other liability,
 # whether in an action of contract, tort or otherwise, arising
 # from, out of or in connection with the software or the use or
 # other dealings in the software.
 
-# This module handles the creation and management of non-fungible tokens (NFTs).
-
 class NonFungibleToken:
-    def __init__(self, name, symbol):
+    def __init__(self, name, symbol, owner):
         self.name = name
         self.symbol = symbol
+        self.owner = owner
         self.tokens = {}
-        self.owners = {}
+        self.token_owners = {}
+        self.approvals = {}
+        self.operators = {}
 
-    def mint(self, token_id, owner):
-        """Mint a new non-fungible token with a specified ID to a specified owner."""
+    def mint(self, to, token_id, metadata):
         if token_id in self.tokens:
-            return False  # Token already exists
-        self.tokens[token_id] = owner
-        self.owners[owner] = self.owners.get(owner, []) + [token_id]
-        return True
+            raise Exception("Token ID already exists")
+        self.tokens[token_id] = metadata
+        self.token_owners[token_id] = to
 
-    def transfer(self, sender, recipient, token_id):
-        """Transfer a non-fungible token from one account to another."""
-        if token_id not in self.tokens or self.tokens[token_id] != sender:
-            return False  # Token does not belong to sender
-        self.tokens[token_id] = recipient
-        self.owners[sender].remove(token_id)
-        if recipient in self.owners:
-            self.owners[recipient].append(token_id)
-        else:
-            self.owners[recipient] = [token_id]
-        return True
+    def transfer(self, from_address, to_address, token_id):
+        if self.token_owners.get(token_id) != from_address:
+            raise Exception("Transfer not authorized by token owner")
+        self.token_owners[token_id] = to_address
+
+    def approve(self, approved, token_id):
+        owner = self.token_owners.get(token_id)
+        if owner is None:
+            raise Exception("Token does not exist")
+        self.approvals[token_id] = approved
+
+    def get_approved(self, token_id):
+        return self.approvals.get(token_id, None)
+
+    def set_approval_for_all(self, operator, approved):
+        self.operators[operator] = approved
+
+    def is_approved_for_all(self, owner, operator):
+        return self.operators.get(operator, False)
+
+    def burn(self, token_id):
+        if token_id not in self.tokens:
+            raise Exception("Token ID does not exist")
+        del self.tokens[token_id]
+        del self.token_owners[token_id]
+        if token_id in self.approvals:
+            del self.approvals[token_id]
 
     def owner_of(self, token_id):
-        """Return the owner of a specified token."""
+        return self.token_owners.get(token_id, None)
+
+    def balance_of(self, owner):
+        return sum(1 for token_owner in self.token_owners.values() if token_owner == owner)
+
+    def token_metadata(self, token_id):
         return self.tokens.get(token_id, None)
 
-    def tokens_of_owner(self, owner):
-        """Return a list of token IDs owned by a specified account."""
-        return self.owners.get(owner, [])
-
-# Example usage
-if __name__ == "__main__":
-    nft = NonFungibleToken("ExampleNFT", "ENFT")
-    nft.mint(1, "alice")
-    nft.mint(2, "alice")
-    nft.transfer("alice", "bob", 1)
-    print(f"Owner of token 1: {nft.owner_of(1)}")
-    print(f"Alice's tokens: {nft.tokens_of_owner('alice')}")
-    print(f"Bob's tokens: {nft.tokens_of_owner('bob')}")
+    def transfer_from(self, from_address, to_address, token_id):
+        if self.get_approved(token_id) != from_address and not self.is_approved_for_all(self.owner_of(token_id), from_address):
+            raise Exception("Transfer not approved")
+        self.transfer(from_address, to_address, token_id)
