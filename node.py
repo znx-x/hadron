@@ -1,17 +1,8 @@
-# node.py
-
-# This software is provided "as is", without warranty of any kind,
-# express or implied, including but not limited to the warranties
-# of merchantability, fitness for a particular purpose and
-# noninfringement. In no event shall the authors or copyright
-# holders be liable for any claim, damages, or other liability,
-# whether in an action of contract, tort or otherwise, arising
-# from, out of or in connection with the software or the use or
-# other dealings in the software.
-
 import json
 import threading
 import time
+import math
+from hashlib import sha256
 from cryptography import Qhash3512
 from parameters import parameters
 from database import BlockchainDatabase
@@ -30,8 +21,13 @@ class Blockchain:
         self.miner_wallet_address = parameters.get("miner_wallet_address", "0000000000000000000000000000000000000000")
         logging.info("Blockchain node initializing...")
         self.load_chain()
+
+        if len(self.chain) == 0:
+            # Create genesis block with proof 100
+            self.new_block(previous_hash='1', proof=100)
+            logging.info("Genesis block created.")
+
         logging.info("Blockchain loaded.")
-        self.new_block(previous_hash='1', proof=100)
 
     def load_chain(self):
         """Load the existing blockchain from the database."""
@@ -46,16 +42,13 @@ class Blockchain:
         block = {
             'block_number': len(self.chain) + 1,
             'parent_hash': previous_hash or self.hash(self.chain[-1]) if self.chain else '1',
-            'state_root': self.state.get_root(),  # Assuming state has a method to get its root
+            'state_root': self.state.get_root(),
             'tx_root': self.calculate_merkle_root(self.current_transactions),
-            'receipt_root': '',  # This would need to be calculated from receipts if implemented
-            'logs_bloom': '',  # Placeholder, would be calculated from transaction logs if needed
-            'difficulty': self.calculate_difficulty(),  # Placeholder, depending on your PoW logic
-            'nonce': '',  # Placeholder, usually found after PoW
-            'mix_hash': '',  # Placeholder, depending on your PoW algorithm
+            'difficulty': self.calculate_difficulty(),
+            'nonce': proof,  # Set the proof of work result as the nonce
             'timestamp': time.time(),
             'miner': self.miner_wallet_address,
-            'block_size': self.calculate_block_size(),  # Assuming you have logic to calculate the size
+            'block_size': self.calculate_block_size(),
             'transaction_count': len(self.current_transactions),
             'transactions': self.current_transactions
         }
@@ -70,18 +63,46 @@ class Blockchain:
 
     def calculate_merkle_root(self, transactions):
         """Calculate the Merkle root of transactions in the block."""
-        # Implement your Merkle root calculation here
-        return ''
+        if not transactions:
+            return None
+
+        def hash_pair(a, b):
+            return sha256((a + b).encode('utf-8')).hexdigest()
+
+        # Start with the transactions' hashes
+        transaction_hashes = [sha256(json.dumps(tx, sort_keys=True).encode()).hexdigest() for tx in transactions]
+
+        while len(transaction_hashes) > 1:
+            if len(transaction_hashes) % 2 == 1:
+                transaction_hashes.append(transaction_hashes[-1])
+            transaction_hashes = [hash_pair(transaction_hashes[i], transaction_hashes[i + 1]) for i in range(0, len(transaction_hashes), 2)]
+
+        return transaction_hashes[0]
 
     def calculate_difficulty(self):
         """Calculate the difficulty for the current block."""
-        # Implement your difficulty adjustment algorithm here
-        return 0
+        if len(self.chain) < 2:
+            return parameters['initial_difficulty']
+        
+        last_block = self.chain[-1]
+        previous_block = self.chain[-2]
+
+        # Calculate the time taken to mine the last block
+        actual_time = last_block['timestamp'] - previous_block['timestamp']
+        target_time = parameters['block_time']
+
+        if actual_time < target_time * 0.75:
+            return last_block['difficulty'] + 1
+        elif actual_time > target_time * 1.25:
+            return max(1, last_block['difficulty'] - 1)
+        else:
+            return last_block['difficulty']
 
     def calculate_block_size(self):
         """Calculate the size of the current block."""
-        # Implement your block size calculation here
-        return 0
+        if not self.chain:
+            return 0
+        return len(json.dumps(self.chain[-1]).encode('utf-8'))
 
     def new_transaction(self, sender, recipient, amount, text=None, token=None, nft=None):
         """Create a new transaction, with optional text, token, or NFT transfers."""
@@ -128,7 +149,7 @@ class Blockchain:
     def mine_block(self):
         """Mine a new block using the Proof-of-Work algorithm."""
         last_block = self.chain[-1]
-        proof = self.proof_of_work(last_block['proof'])
+        proof = self.proof_of_work(last_block['nonce'])
         if self.miner_wallet_address != "0000000000000000000000000000000000000000":
             self.state.update_balance(self.miner_wallet_address, parameters['block_reward'])
         previous_hash = self.hash(last_block)
@@ -136,10 +157,10 @@ class Blockchain:
         self.state.update_state(block)
         return block
 
-    def proof_of_work(self, last_proof):
+    def proof_of_work(self, last_nonce):
         """Simple Proof-of-Work algorithm."""
         proof = 0
-        last_hash = Qhash3512.generate_hash(str(last_proof))
+        last_hash = Qhash3512.generate_hash(str(last_nonce))
         while self.valid_proof(last_hash, proof) is False:
             proof += 1
         return proof
@@ -149,14 +170,16 @@ class Blockchain:
         """Validate the proof by checking if it meets the difficulty criteria."""
         guess = f'{last_hash}{proof}'.encode()
         guess_hash = Qhash3512.generate_hash(guess.decode())
-        return guess_hash[:4] == "0000"
+        return guess_hash[:parameters['difficulty_prefix']] == "0" * parameters['difficulty_prefix']
 
     def validate_block(self, block):
         """Validate a block before adding it to the chain."""
-        last_block = self.chain[-1]
-        if block['previous_hash'] != self.hash(last_block):
+        if not self.chain:
             return False
-        if not self.valid_proof(block['proof'], last_block['proof']):
+        last_block = self.chain[-1]
+        if block['parent_hash'] != self.hash(last_block):
+            return False
+        if not self.valid_proof(block['nonce'], last_block['nonce']):
             return False
         return True
 

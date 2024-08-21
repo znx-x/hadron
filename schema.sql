@@ -5,11 +5,6 @@ CREATE TABLE IF NOT EXISTS blocks (
     parent_hash TEXT,
     state_root TEXT,
     tx_root TEXT,
-    receipt_root TEXT,
-    logs_bloom TEXT,
-    difficulty INTEGER,
-    nonce TEXT,
-    mix_hash TEXT,
     timestamp INTEGER,
     miner TEXT,
     block_size INTEGER,
@@ -53,32 +48,7 @@ CREATE TABLE IF NOT EXISTS state (
     FOREIGN KEY (account_address) REFERENCES accounts(address)
 );
 
--- Schema for Receipts
-CREATE TABLE IF NOT EXISTS receipts (
-    tx_hash TEXT PRIMARY KEY,
-    block_hash TEXT,
-    block_number INTEGER,
-    cumulative_size INTEGER,  -- Acts as cumulative gas used
-    logs_bloom TEXT,
-    status INTEGER,  -- Success or failure
-    logs TEXT,  -- Event logs
-    FOREIGN KEY (tx_hash) REFERENCES transactions(tx_hash)
-);
-
--- Schema for Logs
-CREATE TABLE IF NOT EXISTS logs (
-    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tx_hash TEXT,
-    block_hash TEXT,
-    block_number INTEGER,
-    log_index INTEGER,
-    address TEXT,
-    data TEXT,
-    topics TEXT,
-    FOREIGN KEY (tx_hash) REFERENCES transactions(tx_hash)
-);
-
--- Schema for WASM Smart Contracts
+-- Schema for Contracts (WASM Smart Contracts)
 CREATE TABLE IF NOT EXISTS contracts (
     contract_address TEXT PRIMARY KEY,
     owner_address TEXT,

@@ -11,26 +11,26 @@
 
 from flask import Flask
 from .accounts import accounts_bp
-from .blockchain import blockchain_bp
-from .contracts import contracts_bp
-from .fts import fts_bp
-from .nfts import nfts_bp
-from .transactions import transactions_bp
+from .blockchain import create_blockchain_blueprint
+from .contracts import create_contracts_blueprint
+from .fts import create_fts_blueprint
+from .nfts import create_nfts_blueprint
+from .transactions import create_transactions_blueprint
 import logging
 
-def create_app():
+def create_app(blockchain):
     app = Flask(__name__)
 
     # Basic logging setup
     logging.basicConfig(level=logging.INFO)
 
-    # Registering the Blueprints
+    # Registering the Blueprints with the blockchain instance
     app.register_blueprint(accounts_bp, url_prefix='/accounts')
-    app.register_blueprint(blockchain_bp, url_prefix='/blockchain')
-    app.register_blueprint(contracts_bp, url_prefix='/contracts')
-    app.register_blueprint(fts_bp, url_prefix='/fts')
-    app.register_blueprint(nfts_bp, url_prefix='/nfts')
-    app.register_blueprint(transactions_bp, url_prefix='/transactions')
+    app.register_blueprint(create_blockchain_blueprint(blockchain), url_prefix='/blockchain')
+    app.register_blueprint(create_contracts_blueprint(blockchain), url_prefix='/contracts')
+    app.register_blueprint(create_fts_blueprint(blockchain), url_prefix='/fts')
+    app.register_blueprint(create_nfts_blueprint(blockchain), url_prefix='/nfts')
+    app.register_blueprint(create_transactions_blueprint(blockchain), url_prefix='/transactions')
 
     # Global error handlers (Optional)
     @app.errorhandler(404)
