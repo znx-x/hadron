@@ -2,6 +2,7 @@
 /__pycache__
 /api/__pycache__
 /blockchain
+/wallets
 
 # Production Config Files
 /config.json

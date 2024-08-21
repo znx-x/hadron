@@ -36,7 +36,7 @@ parameters = {
     "host": "0.0.0.0",
     "port": 5000,
     "log_file": "blockchain.log",
-    "miner_wallet_address": "0000000000000000000000000000000000000000",  # Default to the zero address
+    "miner_wallet_address": "d95c02123362817f0b556e82f5d4ab3c0c2510f4",  # Default to the zero address
     
     # Node storage settings
     "node_storage_full": 0,  # Number of blocks stored by FULL nodes

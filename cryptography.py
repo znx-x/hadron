@@ -1,7 +1,7 @@
 # This software is provided "as is", without warranty of any kind,
 # express or implied, including but not limited to the warranties
 # of merchantability, fitness for a particular purpose and
-# noninfringement. In no even shall the authors or copyright
+# noninfringement. In no event shall the authors or copyright
 # holders be liable for any claim, damages, or other liability,
 # whether in an action of contract, tort or otherwise, arising
 # from, out of or in connection with the software or the use or
@@ -11,8 +11,11 @@
 # handles signature, hash inputs, and outputs.
 
 from Crypto.Hash import SHA3_512
+from Crypto.Protocol.KDF import PBKDF2
 from nacl.signing import SigningKey, VerifyKey
 from nacl.public import PrivateKey, PublicKey, Box
+from base64 import urlsafe_b64encode, urlsafe_b64decode
+from nacl.utils import random
 
 class Qhash3512:
     @staticmethod
@@ -56,14 +59,12 @@ class Qhash3512:
     @staticmethod
     def hash_transaction(transaction_data: dict) -> str:
         """Generates a hash for a transaction by serializing the transaction data and hashing it."""
-        # Assuming the transaction_data dictionary is serialized to a JSON string
         serialized_data = json.dumps(transaction_data, sort_keys=True)
         return Qhash3512.generate_hash(serialized_data)
 
     @staticmethod
     def hash_block(block_data: dict) -> str:
         """Generates a hash for a block by serializing the block data and hashing it."""
-        # Assuming the block_data dictionary is serialized to a JSON string
         serialized_data = json.dumps(block_data, sort_keys=True)
         return Qhash3512.generate_hash(serialized_data)
 
@@ -80,4 +81,20 @@ class Qhash3512:
         box = Box(private_key, PublicKey(private_key.public_key.encode()))
         decrypted = box.decrypt(bytes.fromhex(encrypted_data))
         return decrypted.decode('utf-8')
-    
+
+    @staticmethod
+    def hash_password(password: str, salt: bytes = None, iterations: int = 100_000) -> str:
+        """Hashes a password using PBKDF2 with SHA3-512."""
+        if salt is None:
+            salt = random(16)
+        key = PBKDF2(password.encode('utf-8'), salt, 32, count=iterations, hmac_hash_module=SHA3_512)
+        return urlsafe_b64encode(salt + key).decode('utf-8')
+
+    @staticmethod
+    def verify_password(stored_password: str, provided_password: str, iterations: int = 100_000) -> bool:
+        """Verifies the provided password against the stored hash."""
+        decoded = urlsafe_b64decode(stored_password.encode('utf-8'))
+        salt = decoded[:16]
+        stored_key = decoded[16:]
+        new_key = PBKDF2(provided_password.encode('utf-8'), salt, 32, count=iterations, hmac_hash_module=SHA3_512)
+        return new_key == stored_key
