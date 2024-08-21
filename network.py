@@ -64,13 +64,18 @@ class P2PNetwork:
                     break
                 message = json.loads(data)
                 self.process_message(message, peer_id)
-            except:
+            except (socket.error, json.JSONDecodeError) as e:
+                print(f"Error handling peer {peer_id}: {e}")
                 self.peers.pop(peer_id, None)
                 client.close()
                 break
 
     def process_message(self, message, peer_id):
         """Process and respond to incoming messages from peers."""
+        if not isinstance(message, dict) or 'type' not in message:
+            print(f"Received invalid message from {peer_id}")
+            return
+        
         message_type = message.get('type')
 
         if message_type == 'transaction':
@@ -96,20 +101,28 @@ class P2PNetwork:
             if peer_id != exclude_peer:
                 try:
                     peer.send(json.dumps(data).encode('utf-8'))
-                except:
+                except socket.error as e:
+                    print(f"Error broadcasting to peer {peer_id}: {e}")
                     self.peers.pop(peer_id, None)
                     peer.close()
 
     def connect_to_peer(self, node):
         """Connect to a new peer using the full node string."""
+        if node in self.peers:
+            print(f"Already connected to {node}")
+            return
+        
         parsed_node = self.parse_node_string(node)
         peer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        peer.connect((parsed_node['host'], parsed_node['port']))
-        peer_id = node
-        self.peers[peer_id] = peer
-        peer.send(self.node_id.encode('utf-8'))
-        print(f"Connected to {parsed_node['host']}:{parsed_node['port']}, Peer ID: {peer_id}")
-        threading.Thread(target=self.handle_peer, args=(peer, peer_id)).start()
+        try:
+            peer.connect((parsed_node['host'], parsed_node['port']))
+            peer_id = node
+            self.peers[peer_id] = peer
+            peer.send(self.node_id.encode('utf-8'))
+            print(f"Connected to {parsed_node['host']}:{parsed_node['port']}, Peer ID: {peer_id}")
+            threading.Thread(target=self.handle_peer, args=(peer, peer_id)).start()
+        except socket.error as e:
+            print(f"Failed to connect to {node}: {e}")
 
     def parse_node_string(self, node_string):
         """Parse a node string in the format 'node://<node_id>@<ip>:<port>'."""
@@ -144,4 +157,3 @@ class P2PNetwork:
         if not self.peers:
             self.is_prime_node = True
             print("No bootnodes found. This node is now the prime node.")
-

@@ -13,6 +13,7 @@
 import leveldb
 import json
 from parameters import parameters
+from cryptography import Qhash3512
 
 class BlockchainDatabase:
     def __init__(self):
@@ -69,7 +70,25 @@ class BlockchainDatabase:
 
     def validate_block(self, block_data):
         """Validates the block data before saving it to the database."""
-        # Implement block validation logic (e.g., structure, necessary fields)
-        if isinstance(block_data, dict) and "index" in block_data and "timestamp" in block_data:
-            return True
-        return False
+        # Basic validation
+        if not isinstance(block_data, dict) or "index" not in block_data or "timestamp" not in block_data:
+            return False
+
+        # Check for necessary fields
+        required_fields = ["index", "timestamp", "transactions", "proof", "previous_hash", "hash"]
+        for field in required_fields:
+            if field not in block_data:
+                return False
+
+        # Check that the block's hash is correct
+        calculated_hash = Qhash3512.hash_block(block_data)
+        if calculated_hash != block_data["hash"]:
+            return False
+
+        # Ensure the block's previous hash matches the last block's hash in the chain
+        if block_data["index"] > 1:
+            previous_block = self.get_block(block_data["index"] - 1)
+            if previous_block is None or block_data["previous_hash"] != previous_block["hash"]:
+                return False
+
+        return True
