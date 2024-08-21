@@ -1,3 +1,5 @@
+# api/blockchain.py
+
 # This software is provided "as is", without warranty of any kind,
 # express or implied, including but not limited to the warranties
 # of merchantability, fitness for a particular purpose and
@@ -8,7 +10,7 @@
 # other dealings in the software.
 
 from flask import Blueprint, jsonify
-from server import blockchain
+from blockchain import blockchain
 
 blockchain_bp = Blueprint('blockchain', __name__)
 

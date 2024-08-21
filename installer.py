@@ -20,12 +20,12 @@ def install_packages():
         'requests',
         'pycryptodome',
         'PyQt5',
-        'pynacl',
-        'leveldb'
+        'pynacl'
     ]
 
     for package in required_packages:
         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
 
 if __name__ == "__main__":
     install_packages()

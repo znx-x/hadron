@@ -17,14 +17,13 @@ parameters = {
     "max_supply": 1000000,  # Set 0 to infinite supply
     "decimals": 10,  # Number of decimals of the native coin
     "block_reward": 12500000000,  # Coins rewarded per block mined in decimal points
-    "appendix_block_reward": 10,  # Percentage of reward paid to appendix blocks
     "epoch": 40320,  # Number of blocks per epoch
     "halving_epoch_interval": 100,  # Number of epochs between halvings
     "block_time": 15,  # In seconds
     "raw_tx_fee": 1,  # Flat fee per raw transaction
     "kb_tx_fee": 100,  # Additional fee per kilobyte of space used
     "block_size": 256,  # Maximum block size in kilobytes
-    "data_directory": "/blockchain",  # Folder where the blockchain is stored
+    "data_directory": "./blockchain",  # Folder where the blockchain is stored
     "smart_contracts": True,  # Toggle smart contracts on/off
     "fts": True,  # Toggle fungible tokens on/off
     "nfts": True,  # Toggle non-fungible tokens on/off

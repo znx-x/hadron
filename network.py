@@ -16,7 +16,7 @@ import json
 import os
 import uuid
 from parameters import parameters
-from server import blockchain
+from node import Blockchain
 
 class P2PNetwork:
     def __init__(self, host='0.0.0.0', port=5000):
