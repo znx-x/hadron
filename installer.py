@@ -20,7 +20,8 @@ def install_packages():
         'requests',
         'pycryptodome',
         'PyQt5',
-        'pynacl'
+        'pynacl',
+        'waitress'
     ]
 
     for package in required_packages:

@@ -1,3 +1,12 @@
+# This software is provided "as is", without warranty of any kind,
+# express or implied, including but not limited to the warranties
+# of merchantability, fitness for a particular purpose and
+# noninfringement. In no event shall the authors or copyright
+# holders be liable for any claim, damages, or other liability,
+# whether in an action of contract, tort or otherwise, arising
+# from, out of or in connection with the software or the use or
+# other dealings in the software.
+
 import json
 import threading
 import time
@@ -183,13 +192,13 @@ class Blockchain:
             return False
         return True
 
-    def run_node(self):
+    def run_node(self, shutdown_flag):
         """Run the node and handle the consensus algorithm."""
-        miner_thread = threading.Thread(target=self.consensus_algorithm)
+        miner_thread = threading.Thread(target=self.consensus_algorithm, args=(shutdown_flag,))
         miner_thread.start()
 
-    def consensus_algorithm(self):
+    def consensus_algorithm(self, shutdown_flag):
         """Continuously mine blocks and maintain consensus."""
-        while True:
-            time.sleep(parameters['block_time'])
+        while not shutdown_flag.is_set():
             self.mine_block()
+            time.sleep(parameters['block_time'])
