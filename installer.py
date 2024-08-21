@@ -21,9 +21,7 @@ def install_packages():
         'pycryptodome',
         'PyQt5',
         'pynacl',
-        'leveldb',
-        'json',
-        'logging'
+        'leveldb'
     ]
 
     for package in required_packages:
