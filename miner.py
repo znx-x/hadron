@@ -18,6 +18,7 @@ import multiprocessing
 import psutil
 from pow import MineH
 from parameters import parameters
+from consensus import Consensus
 
 class Miner:
     DEFAULT_MEMORY_USAGE_MB = 4  # Default memory usage per thread if not specified or invalid
@@ -27,7 +28,11 @@ class Miner:
         self.wallet_address = wallet_address
         self.p2p_network = p2p_network
         self.blockchain = blockchain
+        
         self.is_mining = True
+        self.total_hashes = 0
+        self.hashrate = 0
+        self.last_hashrate_calc = time.time()
         logging.basicConfig(filename=parameters['log_file'], level=logging.INFO)
 
         # Validate and adjust memory usage
@@ -39,6 +44,8 @@ class Miner:
         # Initialize MineH with validated memory usage
         memory_size_bytes = self.memory_usage * (2**20)  # Convert MB to Bytes
         self.mineh = MineH(memory_size=memory_size_bytes, memory_update_interval=10)
+
+        self.consensus = Consensus(p2p_network, blockchain, self.mineh)
 
     def validate_memory_usage(self, memory_usage_mb):
         """Validate and adjust memory usage based on system availability."""
@@ -56,37 +63,12 @@ class Miner:
             return self.DEFAULT_CPU_COUNT
         return cpu_count
 
-    class Miner:
-        DEFAULT_MEMORY_USAGE_MB = 4  # Default memory usage per thread if not specified or invalid
-        DEFAULT_CPU_COUNT = 1  # Default CPU count if not specified or invalid
-
-    def __init__(self, wallet_address, p2p_network, blockchain):
-        self.wallet_address = wallet_address
-        self.p2p_network = p2p_network
-        self.blockchain = blockchain
-        self.is_mining = True
-        self.total_hashes = 0
-        self.hashrate = 0
-        self.last_hashrate_calc = time.time()
-        logging.basicConfig(filename=parameters['log_file'], level=logging.INFO)
-
-        # Validate and adjust memory usage
-        self.memory_usage = self.validate_memory_usage(parameters['memory_usage'])
-        
-        # Validate and adjust CPU count
-        self.cpu_count = self.validate_cpu_count(parameters['cpu_count'])
-        
-        # Initialize MineH with validated memory usage
-        memory_size_bytes = self.memory_usage * (2**20)  # Convert MB to Bytes
-        self.mineh = MineH(memory_size=memory_size_bytes, memory_update_interval=10)
-
     def mine(self):
         """Perform the mining process."""
         while self.is_mining:
             try:
                 last_block = self.blockchain.chain[-1]
                 previous_hash = last_block.get('block_hash', self.blockchain.hash(last_block))
-
                 new_block_data = {
                     "block_number": last_block['block_number'] + 1,
                     "transactions": self.blockchain.current_transactions,
@@ -94,7 +76,7 @@ class Miner:
                     "state_root": self.blockchain.state.get_root(),
                     "tx_root": self.blockchain.calculate_merkle_root(self.blockchain.current_transactions),
                     "timestamp": time.time(),
-                    "difficulty": 1,
+                    "difficulty": self.consensus.adjust_difficulty(self.blockchain.chain),
                     "miner": self.wallet_address,
                     "block_size": 0,
                     "transaction_count": len(self.blockchain.current_transactions)

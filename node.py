@@ -173,7 +173,7 @@ class Blockchain:
             'miner': block['miner'],
             'block_size': block['block_size'],
             'transaction_count': block['transaction_count'],
-            'transactions': block['transactions']
+            'transactions': block.get('transactions', [])
         }, sort_keys=True)
 
         # Include memory data in the block hash calculation

@@ -10,14 +10,15 @@
 # This module handles the blockchain consensus mechanism and ensures
 # all nodes work in synergy to keep the blockchain running.
 
-from server import blockchain
+import json
 from pow import MineH
 from network import P2PNetwork
 
 class Consensus:
-    def __init__(self, p2p_network: P2PNetwork):
-        self.mineh = MineH()
+    def __init__(self, p2p_network: P2PNetwork, blockchain, mineh):
+        self.mineh = mineh
         self.p2p_network = p2p_network
+        self.blockchain = blockchain
 
     def adjust_difficulty(self, previous_blocks: list, target_time_per_block: int = 15, adjustment_interval: int = 10) -> int:
         """
@@ -50,12 +51,12 @@ class Consensus:
 
     def achieve_consensus(self):
         """Ensures all nodes in the network agree on the longest valid chain."""
-        longest_chain = blockchain.chain
+        longest_chain = self.blockchain.chain
         for peer_chain in self.get_peer_chains():
             if len(peer_chain) > len(longest_chain) and self.is_chain_valid(peer_chain):
                 longest_chain = peer_chain
-        if longest_chain != blockchain.chain:
-            blockchain.chain = longest_chain
+        if longest_chain != self.blockchain.chain:
+            self.blockchain.chain = longest_chain
 
     def get_peer_chains(self):
         """Retrieves blockchain data from connected peers."""
@@ -78,7 +79,7 @@ class Consensus:
             previous_block = chain[i - 1]
 
             # Check that the block's previous hash matches the hash of the previous block
-            if current_block['previous_hash'] != blockchain.hash_block(previous_block):
+            if current_block['previous_hash'] != self.blockchain.hash_block(previous_block):
                 return False
 
             # Check that the block's hash meets the difficulty criteria
