@@ -55,7 +55,7 @@ class BlockchainDatabase:
         """
         self.cursor.executescript(schema)
         self.connection.commit()
-        print("[Database] Initialized and ready.")
+        print("[Blockchain] Initialized and ready.")
 
     def save_block(self, block_hash, block_data):
         """Saves a block to the SQLite database using the block hash as the key."""
@@ -82,9 +82,9 @@ class BlockchainDatabase:
                 )
             )
             self.connection.commit()
-            print(f"[Database] Block {block_hash} saved.")
+            print(f"[Blockchain] Added Block to DB: {block_hash}")
         except sqlite3.Error as e:
-            print(f"[Database] Error saving block {block_hash}: {e}")
+            print(f"[Blockchain] Error saving block {block_hash}: {e}")
 
     def get_block(self, block_hash):
         """Retrieves a block from the database using the block hash as the key."""
@@ -96,7 +96,7 @@ class BlockchainDatabase:
                 return dict(zip(columns, block))
             return None
         except sqlite3.Error as e:
-            print(f"[Database] Unexpected error retrieving block {block_hash}: {e}")
+            print(f"[Blockchain] Unexpected error retrieving block {block_hash}: {e}")
             return None
 
     def get_last_block(self):
@@ -109,5 +109,31 @@ class BlockchainDatabase:
                 return dict(zip(columns, block))
             return None
         except sqlite3.Error as e:
-            print(f"[Database] Error retrieving the last block: {e}")
+            print(f"[Blockchain] Error retrieving the last block: {e}")
             return None
+    
+    def save_transaction(self, transaction):
+        """Saves a transaction to the SQLite database."""
+        try:
+            self.cursor.execute(
+                """
+                INSERT OR REPLACE INTO transactions (
+                    tx_hash, block_hash, sender, recipient, value, fee, nonce, input, timestamp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    transaction['tx_hash'],
+                    transaction['block_hash'],
+                    transaction['sender'],
+                    transaction['recipient'],
+                    transaction['value'],
+                    transaction['fee'],
+                    transaction['nonce'],
+                    transaction['input'],
+                    transaction['timestamp'],
+                )
+            )
+            self.connection.commit()  # Ensure that the transaction is committed to the database
+            print(f"[Blockchain] Added Transaction to DB: {transaction['tx_hash']}")
+        except sqlite3.Error as e:
+            print(f"[Blockchain] Error saving transaction {transaction['tx_hash']}: {e}")

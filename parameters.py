@@ -28,6 +28,7 @@ parameters = {
     "smart_contracts": True,  # Toggle smart contracts on/off
     "fts": True,  # Toggle fungible tokens on/off
     "nfts": True,  # Toggle non-fungible tokens on/off
+    "system_account": '0000000000000000000000000000000000000000', # Don't change unless you really know what you're doing!
     
     # Difficulty-related parameters
     "initial_difficulty": 150000000,  # Initial difficulty level for genesis block

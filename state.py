@@ -23,6 +23,9 @@ class BlockchainState:
 
     def update_balance(self, address, amount):
         """Update the balance of an account."""
+        if address not in self.balances:
+            self.balances[address] = 0
+
         if amount < 0 and self.balances[address] + amount < 0:
             raise ValueError("Insufficient funds.")
         
@@ -34,7 +37,10 @@ class BlockchainState:
             self.accounts.discard(address)
 
     def get_balance(self, address):
-        """Get the balance of a specific account."""
+        """Get the balance of a specific account, creating the account if it doesn't exist."""
+        if address not in self.balances:
+            self.balances[address] = 0
+            self.accounts.add(address)
         return self.balances[address]
 
     def get_nonce(self, address):

@@ -59,6 +59,7 @@ class Blockchain:
             chain.append(block)
             block = self.db.get_block(block['parent_hash'])
 
+        # Reverse the chain to maintain the correct order
         chain.reverse()
         self.chain = chain
         logging.info(f"{len(self.chain)} blocks loaded from the database.")
@@ -79,7 +80,6 @@ class Blockchain:
             'transactions': self.current_transactions
         }
 
-        # Calculate block size
         block['block_size'] = len(json.dumps(block).encode('utf-8'))
 
         self.current_transactions = []
@@ -87,6 +87,12 @@ class Blockchain:
         block['block_hash'] = block_hash
         self.chain.append(block)
         self.db.save_block(block_hash, block)
+
+        # Update the block_hash in the reward transaction before saving it
+        for transaction in block['transactions']:
+            transaction["block_hash"] = block_hash
+            self.db.save_transaction(transaction)
+
         logging.info(f"→ Update Network Height: {block['block_number']}")
         self.state.clear_transactions()
         return block
@@ -209,6 +215,13 @@ class Blockchain:
     def stop_node(self):
         """Stop the blockchain node and clean up resources."""
         logging.info("Stopping blockchain node...")
-        if self.mining_thread is not None:
+        shutdown_flag.set()
+        
+        # Ensure all threads are properly joined
+        if self.mining_thread.is_alive():
             self.mining_thread.join()
+
+        if self.p2p_thread.is_alive():
+            self.p2p_thread.join()
+
         logging.info("Blockchain node stopped.")

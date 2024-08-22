@@ -101,6 +101,7 @@ class Miner:
                         proof=new_block_data['nonce'],
                         previous_hash=new_block_data['parent_hash']
                     )
+                    # Ensure the miner's account is credited even if it doesn't exist yet
                     self.blockchain.state.update_balance(self.wallet_address, parameters['block_reward'])
                     self.blockchain.state.clear_transactions()
                     self.broadcast_block(block)
