@@ -78,7 +78,7 @@ class Blockchain:
         block['block_hash'] = block_hash
         self.chain.append(block)
         self.db.save_block(block_hash, block)
-        logging.info(f"New block mined: {block_hash} at height {block['block_number']}")
+        logging.info(f"→ Update Network Height: {block['block_number']}")
         self.state.clear_transactions()
         return block
 
@@ -189,13 +189,13 @@ class Blockchain:
         last_block = self.chain[-1]
 
         if block['parent_hash'] != last_block['block_hash']:
-            logging.error(f"Invalid block: parent hash does not match. Expected {last_block['block_hash']}, got {block['parent_hash']}. Block number: {block['block_number']}")
+            logging.error(f"→ Invalid block: parent hash does not match. Expected {last_block['block_hash']}, got {block['parent_hash']}. Block number: {block['block_number']}")
             return False
 
         recalculated_hash = self.hash(block)
 
         if not Qhash3512.is_valid_hash(recalculated_hash, block['difficulty']):
-            logging.error(f"Invalid block: proof of work is not valid. Expected hash: {recalculated_hash}, Block hash: {block['block_hash']}. Block number: {block['block_number']}")
+            logging.error(f"→ PoW Submission for Block {block['block_number']} (Status: ✗ Rejected)")
             return False
 
         logging.info(f"Block {block['block_number']} is valid.")

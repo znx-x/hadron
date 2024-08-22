@@ -29,7 +29,7 @@ parameters = {
     "nfts": True,  # Toggle non-fungible tokens on/off
     
     # Difficulty-related parameters
-    "initial_difficulty": 2,  # Initial difficulty level for genesis block
+    "initial_difficulty": 1,  # Initial difficulty level for genesis block
     "difficulty_prefix": 4,  # Number of leading zeros required in the hash for valid proof-of-work
 
     # Node-specific parameters

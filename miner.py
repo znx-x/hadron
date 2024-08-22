@@ -46,7 +46,7 @@ class Miner:
                     "transaction_count": len(self.blockchain.current_transactions)
                 }
 
-                logging.info(f"Mining new block with difficulty: {new_block_data['difficulty']}")
+                logging.info(f"→ Starting PoW Hashing (Difficulty: {new_block_data['difficulty']})")
 
                 # Mine and get the nonce and valid hash
                 nonce, valid_hash = self.mineh.mine(json.dumps(new_block_data, sort_keys=True), new_block_data['difficulty'])
@@ -66,10 +66,11 @@ class Miner:
                     self.blockchain.state.update_balance(self.wallet_address, parameters['block_reward'])
                     self.blockchain.state.clear_transactions()
                     self.broadcast_block(block)
-                    logging.info(f"Successfully mined block {new_block_data['block_number']} with hash {new_block_data['block_hash']}")
+                    logging.info(f"→ PoW Submission for Block {new_block_data['block_number']} (Status: ✓ Accepted)")
+                    logging.info(f"  Hash: {new_block_data['block_hash']}")
 
                 else:
-                    logging.error(f"Block validation failed for block {new_block_data['block_number']}")
+                    logging.error(f"→ Will attempt new PoW for Block {new_block_data['block_number']}")
 
             except Exception as e:
                 logging.error(f"Error during mining: {e}")
@@ -86,7 +87,7 @@ class Miner:
 
     def broadcast_block(self, block_data):
         """Broadcast the mined block to the network."""
-        logging.info(f"Broadcasting block {block_data['block_number']} to the network.")
+        logging.info(f"Broadcasting block {block_data['block_number']} to the network")
         self.p2p_network.broadcast({'type': 'block', 'block': block_data})
 
     def start_mining(self):
