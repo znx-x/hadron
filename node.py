@@ -10,12 +10,12 @@
 import json
 import threading
 import time
-import math
 from hashlib import sha256
 from cryptography import Qhash3512
 from parameters import parameters
 from database import BlockchainDatabase
 from state import BlockchainState
+from pow import MineH  # Importing the MineH algorithm
 import logging
 
 # Configure logging
@@ -29,6 +29,7 @@ class Blockchain:
         self.db = BlockchainDatabase()
         self.miner_wallet_address = parameters.get("miner_wallet_address", "0000000000000000000000000000000000000000")
         self.mining_thread = None
+        self.pow_algorithm = MineH()  # Initialize MineH algorithm
         logging.info("Blockchain node initializing...")
         self.load_chain()
 
@@ -69,6 +70,7 @@ class Blockchain:
         self.current_transactions = []
         self.chain.append(block)
         block_hash = self.hash(block)
+        block['block_hash'] = block_hash  # Store the block hash in the block itself
         self.db.save_block(block_hash, block)
         logging.info(f"New block mined: {block_hash} at height {block['block_number']}")
         self.state.clear_transactions()
@@ -160,42 +162,17 @@ class Blockchain:
     def mine_block(self):
         """Mine a new block using the Proof-of-Work algorithm."""
         last_block = self.chain[-1]
-        proof = self.proof_of_work(last_block['nonce'])
+        difficulty = self.calculate_difficulty()
+        block_data = json.dumps(last_block, sort_keys=True)
+        proof = self.pow_algorithm.mine(block_data, difficulty)  # Use MineH algorithm to find the proof
+
         if self.miner_wallet_address != "0000000000000000000000000000000000000000":
             self.state.update_balance(self.miner_wallet_address, parameters['block_reward'])
-        if ('block_hash' in last_block):
-            previous_hash = last_block['block_hash']
-        else:
-            previous_hash = self.hash(last_block)
+
+        previous_hash = last_block.get('block_hash', self.hash(last_block))
         block = self.new_block(proof, previous_hash)
         self.state.update_state(block)
         return block
-
-    def proof_of_work(self, last_nonce):
-        """Simple Proof-of-Work algorithm."""
-        proof = 0
-        last_hash = Qhash3512.generate_hash(str(last_nonce))
-        while self.valid_proof(last_hash, proof) is False:
-            proof += 1
-        return proof
-
-    @staticmethod
-    def valid_proof(last_hash, proof):
-        """Validate the proof by checking if it meets the difficulty criteria."""
-        guess = f'{last_hash}{proof}'.encode()
-        guess_hash = Qhash3512.generate_hash(guess.decode())
-        return guess_hash[:parameters['difficulty_prefix']] == "0" * parameters['difficulty_prefix']
-
-    def validate_block(self, block):
-        """Validate a block before adding it to the chain."""
-        if not self.chain:
-            return False
-        last_block = self.chain[-1]
-        if block['parent_hash'] != self.hash(last_block):
-            return False
-        if not self.valid_proof(block['nonce'], last_block['nonce']):
-            return False
-        return True
 
     def run_node(self, shutdown_flag):
         """Run the node and handle the consensus algorithm."""
