@@ -16,6 +16,7 @@ from nacl.signing import SigningKey, VerifyKey
 from nacl.public import PrivateKey, PublicKey, Box
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 from nacl.utils import random
+import json
 
 class Qhash3512:
     @staticmethod

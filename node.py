@@ -34,9 +34,11 @@ class Blockchain:
         logging.info("Blockchain node initializing...")
         self.load_chain()
 
-        if not self.chain:
-            self._create_genesis_block()
-        
+        if len(self.chain) == 0:
+            self.new_block(previous_hash='1', proof=100)
+            logging.info("Genesis block created.")
+            time.sleep(2)
+
         logging.info("Blockchain loaded.")
 
     def load_chain(self):
@@ -47,40 +49,37 @@ class Blockchain:
         while block:
             chain.append(block)
             block = self.db.get_block(block['parent_hash'])
-        
+
         chain.reverse()
         self.chain = chain
         logging.info(f"{len(self.chain)} blocks loaded from the database.")
-
-    def _create_genesis_block(self):
-        """Create the genesis block if the chain is empty."""
-        self.new_block(previous_hash='1', proof=100)
-        logging.info("Genesis block created.")
-        time.sleep(2)
 
     def new_block(self, proof, previous_hash=None):
         """Create a new block and add it to the blockchain."""
         block = {
             'block_number': len(self.chain) + 1,
-            'parent_hash': previous_hash or self.hash_block(self.chain[-1]) if self.chain else '1',
+            'parent_hash': previous_hash or self.hash(self.chain[-1]) if self.chain else '1',
             'state_root': self.state.get_root(),
             'tx_root': self.calculate_merkle_root(self.current_transactions),
             'difficulty': self.calculate_difficulty(),
             'nonce': proof,
             'timestamp': time.time(),
             'miner': self.miner_wallet_address,
-            'block_size': self.calculate_block_size(),
+            'block_size': 0,  # Placeholder, will be updated later
             'transaction_count': len(self.current_transactions),
             'transactions': self.current_transactions
         }
 
-        block_hash = self.hash_block(block)
+        # Calculate block size
+        block['block_size'] = len(json.dumps(block).encode('utf-8'))
+
+        self.current_transactions = []
+        block_hash = self.hash(block)
         block['block_hash'] = block_hash
         self.chain.append(block)
         self.db.save_block(block_hash, block)
         logging.info(f"New block mined: {block_hash} at height {block['block_number']}")
         self.state.clear_transactions()
-        self.current_transactions = []
         return block
 
     def calculate_merkle_root(self, transactions):
@@ -160,8 +159,9 @@ class Blockchain:
             additional_fee = (parameters['kb_tx_fee'] * text_size) / (10 ** parameters['decimals'])
         return base_fee + additional_fee
 
-    def hash_block(self, block):
-        """Calculate the hash of a block."""
+    def hash(self, block):
+        """Generate a hash for a block, ensuring all data is included."""
+        # Serialize block data with exact formatting and order
         block_data = json.dumps({
             'block_number': block['block_number'],
             'parent_hash': block['parent_hash'],
@@ -176,9 +176,11 @@ class Blockchain:
             'transactions': block['transactions']
         }, sort_keys=True)
 
+        # Include memory data in the block hash calculation
         memory_data = self.miner.mineh.memory[:self.miner.mineh.memory_size]
         combined_data = f"{block_data}{memory_data.decode('latin1')}"
 
+        # Calculate and return the hash
         recalculated_hash = Qhash3512.generate_hash(combined_data)
         return recalculated_hash
 
@@ -190,7 +192,7 @@ class Blockchain:
             logging.error(f"Invalid block: parent hash does not match. Expected {last_block['block_hash']}, got {block['parent_hash']}. Block number: {block['block_number']}")
             return False
 
-        recalculated_hash = self.hash_block(block)
+        recalculated_hash = self.hash(block)
 
         if not Qhash3512.is_valid_hash(recalculated_hash, block['difficulty']):
             logging.error(f"Invalid block: proof of work is not valid. Expected hash: {recalculated_hash}, Block hash: {block['block_hash']}. Block number: {block['block_number']}")
