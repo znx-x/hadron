@@ -18,7 +18,6 @@ import multiprocessing
 import psutil
 from pow import MineH
 from parameters import parameters
-from consensus import Consensus
 
 class Miner:
     DEFAULT_MEMORY_USAGE_MB = 4  # Default memory usage per thread if not specified or invalid
@@ -28,7 +27,6 @@ class Miner:
         self.wallet_address = wallet_address
         self.p2p_network = p2p_network
         self.blockchain = blockchain
-        self.consensus = Consensus(p2p_network)
         self.is_mining = True
         logging.basicConfig(filename=parameters['log_file'], level=logging.INFO)
 
@@ -96,7 +94,7 @@ class Miner:
                     "state_root": self.blockchain.state.get_root(),
                     "tx_root": self.blockchain.calculate_merkle_root(self.blockchain.current_transactions),
                     "timestamp": time.time(),
-                    "difficulty": difficulty,
+                    "difficulty": 1,
                     "miner": self.wallet_address,
                     "block_size": 0,
                     "transaction_count": len(self.blockchain.current_transactions)

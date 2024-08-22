@@ -22,6 +22,7 @@ import sys
 import time
 from waitress import serve  # Use waitress for production-ready server
 
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
 
