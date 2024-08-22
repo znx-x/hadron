@@ -163,7 +163,10 @@ class Blockchain:
         proof = self.proof_of_work(last_block['nonce'])
         if self.miner_wallet_address != "0000000000000000000000000000000000000000":
             self.state.update_balance(self.miner_wallet_address, parameters['block_reward'])
-        previous_hash = self.hash(last_block)
+        if ('block_hash' in last_block):
+            previous_hash = last_block['block_hash']
+        else:
+            previous_hash = self.hash(last_block)
         block = self.new_block(proof, previous_hash)
         self.state.update_state(block)
         return block
