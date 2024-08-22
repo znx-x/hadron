@@ -10,10 +10,24 @@
 # This module implements the MineH algorithm, a custom Proof-of-Work
 # algorithm that is memory-hard and CPU-friendly.
 
-import hashlib
+# This software is provided "as is", without warranty of any kind,
+# express or implied, including but not limited to the warranties
+# of merchantability, fitness for a particular purpose and
+# noninfringement. In no event shall the authors or copyright
+# holders be liable for any claim, damages, or other liability,
+# whether in an action of contract, tort or otherwise, arising
+# from, out of or in connection with the software or the use or
+# other dealings in the software.
+
+# This module implements the MineH algorithm, a custom Proof-of-Work
+# algorithm that is memory-hard and CPU-friendly.
+
+# pow.py
+
 import os
 import random
 import time
+from cryptography import Qhash3512
 
 class MineH:
     def __init__(self, memory_size=2**20):
@@ -29,21 +43,15 @@ class MineH:
             if time.time() - self.last_memory_update > 60:  # Update every minute
                 self.update_memory()
 
-            combined_data = f"{block_data}{nonce}".encode('utf-8') + self.memory[nonce % self.memory_size:]
-            hash_result = hashlib.sha512(combined_data).hexdigest()
+            combined_data = f"{block_data}{nonce}" + self.memory[nonce % self.memory_size:].decode('latin1')
+            hash_result = Qhash3512.generate_hash(combined_data)
 
-            if self.is_valid_hash(hash_result, difficulty):
+            if Qhash3512.is_valid_hash(hash_result, difficulty):
                 # Log the hash result and combined data for debugging
                 print(f"DEBUG: Mined hash: {hash_result}, Nonce: {nonce}, Combined Data: {combined_data}")
                 return nonce, hash_result  # Return both nonce and valid hash
 
             nonce += 1
-
-    @staticmethod
-    def is_valid_hash(hash_result: str, difficulty: int) -> bool:
-        """Checks if the hash meets the difficulty criteria."""
-        target = '0' * difficulty
-        return hash_result.startswith(target)
 
     def update_memory(self):
         """Periodically updates the memory to ensure the algorithm remains memory-hard."""

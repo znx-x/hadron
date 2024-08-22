@@ -26,6 +26,12 @@ class Qhash3512:
         hasher.update(data.encode('utf-8'))
         hash_value = hasher.hexdigest()
         return hash_value[:truncate_to] if truncate_to else hash_value
+    
+    @staticmethod
+    def is_valid_hash(hash_result: str, difficulty: int) -> bool:
+        """Checks if the hash meets the difficulty criteria."""
+        target = '0' * difficulty
+        return hash_result.startswith(target)
 
     @staticmethod
     def generate_key_pair():
