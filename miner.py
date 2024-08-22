@@ -87,7 +87,7 @@ class Miner:
 
     def broadcast_block(self, block_data):
         """Broadcast the mined block to the network."""
-        logging.info(f"Broadcasting block {block_data['block_number']} to the network")
+        logging.info(f"→ Broadcasting Block: {block_data['block_number']}")
         self.p2p_network.broadcast({'type': 'block', 'block': block_data})
 
     def start_mining(self):

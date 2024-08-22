@@ -198,7 +198,7 @@ class Blockchain:
             logging.error(f"→ PoW Submission for Block {block['block_number']} (Status: ✗ Rejected)")
             return False
 
-        logging.info(f"Block {block['block_number']} is valid.")
+        logging.info(f"→ Validated PoW for Block: {block['block_number']}")
         return True
 
     def mine_block(self):
