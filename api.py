@@ -9,8 +9,11 @@
 
 from flask import Flask
 from api import create_app
+from parameters import parameters
 
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+    host = parameters.get("host", "0.0.0.0")
+    port = parameters.get("port", 5000)
+    app.run(host=host, port=port)
