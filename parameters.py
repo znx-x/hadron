@@ -31,9 +31,9 @@ parameters = {
     
     # Difficulty-related parameters
     "initial_difficulty": 150000000,  # Initial difficulty level for genesis block
-    "difficulty_adjustment_period": 1, # Number of blocks between difficulty adjustments
-    "max_difficulty_increase": 1.025, # Maximum difficulty increase per adjustment
-    "max_difficulty_decrease": 0.975, # Maximum difficulty decrease per adjustment
+    "difficulty_adjustment_period": 4, # Number of blocks between difficulty adjustments
+    "max_difficulty_increase": 1.005, # Maximum difficulty increase per adjustment
+    "max_difficulty_decrease": 0.995, # Maximum difficulty decrease per adjustment
 
     # Node-specific parameters
     "host": "0.0.0.0",
