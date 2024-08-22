@@ -1,7 +1,7 @@
 # This software is provided "as is", without warranty of any kind,
 # express or implied, including but not limited to the warranties
 # of merchantability, fitness for a particular purpose and
-# noninfringement. In no even shall the authors or copyright
+# noninfringement. In no event shall the authors or copyright
 # holders be liable for any claim, damages, or other liability,
 # whether in an action of contract, tort or otherwise, arising
 # from, out of or in connection with the software or the use or
@@ -26,16 +26,13 @@ class P2PNetwork:
         self.server = None
         self.node_id = f"node://{uuid.uuid4()}@{self.host}:{self.port}"  # Concatenated Node Identifier
         self.max_peers = parameters.get("max_node_peers", 128)
-        self.prime_bootnodes = [
-            "node://prime_bootnode_id1@192.0.2.1:30303",
-            "node://prime_bootnode_id2@192.0.2.2:30303",
-            "node://prime_bootnode_id3@192.0.2.3:30303"
-        ]  # List of Prime Bootnodes
+        self.prime_bootnodes = []  # List of Prime Bootnodes
         self.is_prime_node = False  # Flag to check if this node is the prime node
 
     def start_server(self):
         """Start the server to listen for incoming peer connections."""
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow port reuse
         self.server.bind((self.host, self.port))
         self.server.listen(self.max_peers)
         print(f"Server started on {self.host}:{self.port}, Node ID: {self.node_id}")

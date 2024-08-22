@@ -28,6 +28,7 @@ class Blockchain:
         self.state = BlockchainState()
         self.db = BlockchainDatabase()
         self.miner_wallet_address = parameters.get("miner_wallet_address", "0000000000000000000000000000000000000000")
+        self.mining_thread = None
         logging.info("Blockchain node initializing...")
         self.load_chain()
 
@@ -44,10 +45,7 @@ class Blockchain:
         chain = []
         while block:
             chain.append(block)
-            # Fetch the previous block using its hash
             block = self.db.get_block(block['parent_hash'])
-        
-        # The chain is built in reverse order, so we need to reverse it
         chain.reverse()
         self.chain = chain
         logging.info(f"{len(self.chain)} blocks loaded from the database.")
@@ -84,7 +82,6 @@ class Blockchain:
         def hash_pair(a, b):
             return sha256((a + b).encode('utf-8')).hexdigest()
 
-        # Start with the transactions' hashes
         transaction_hashes = [sha256(json.dumps(tx, sort_keys=True).encode()).hexdigest() for tx in transactions]
 
         while len(transaction_hashes) > 1:
@@ -102,7 +99,6 @@ class Blockchain:
         last_block = self.chain[-1]
         previous_block = self.chain[-2]
 
-        # Calculate the time taken to mine the last block
         actual_time = last_block['timestamp'] - previous_block['timestamp']
         target_time = parameters['block_time']
 
@@ -200,11 +196,18 @@ class Blockchain:
 
     def run_node(self, shutdown_flag):
         """Run the node and handle the consensus algorithm."""
-        miner_thread = threading.Thread(target=self.consensus_algorithm, args=(shutdown_flag,))
-        miner_thread.start()
+        self.mining_thread = threading.Thread(target=self.consensus_algorithm, args=(shutdown_flag,))
+        self.mining_thread.start()
 
     def consensus_algorithm(self, shutdown_flag):
         """Continuously mine blocks and maintain consensus."""
         while not shutdown_flag.is_set():
             self.mine_block()
             time.sleep(parameters['block_time'])
+
+    def stop_node(self):
+        """Stop the blockchain node's operations."""
+        logging.info("Stopping blockchain node...")
+        if self.mining_thread is not None:
+            self.mining_thread.join()  # Wait for the mining thread to finish
+        logging.info("Blockchain node stopped.")

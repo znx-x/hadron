@@ -29,19 +29,16 @@ blockchain = Blockchain()
 # Initialize shutdown flag
 shutdown_flag = threading.Event()
 
-
 def start_node(shutdown_flag):
     """Start the blockchain node."""
     logging.info("Starting blockchain node...")
     blockchain.run_node(shutdown_flag)
-
 
 def start_network(shutdown_flag):
     """Start the P2P network."""
     logging.info("Starting P2P network...")
     p2p_network = P2PNetwork(host='0.0.0.0', port=5001)
     p2p_network.start_server()
-
 
 def start_api(shutdown_flag):
     """Start the Flask API server."""
@@ -51,11 +48,9 @@ def start_api(shutdown_flag):
     server.start()
     return server
 
-
 def serve_api(app, shutdown_flag):
     """Serve the Flask API using Waitress."""
     serve(app, host='0.0.0.0', port=5000, threads=4)
-
 
 def signal_handler(sig, frame):
     """Handle shutdown signals."""
@@ -66,7 +61,6 @@ def signal_handler(sig, frame):
     logging.info("All services stopped. Exiting now.")
     sys.exit(0)
 
-
 if __name__ == "__main__":
     # Register signal handler for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
@@ -75,8 +69,7 @@ if __name__ == "__main__":
     # Start services
     logging.info("Initializing services...")
     node_thread = threading.Thread(target=start_node, args=(shutdown_flag,))
-    network_thread = threading.Thread(
-        target=start_network, args=(shutdown_flag,))
+    network_thread = threading.Thread(target=start_network, args=(shutdown_flag,))
     api_thread = start_api(shutdown_flag)
 
     node_thread.start()
