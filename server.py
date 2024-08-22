@@ -15,6 +15,8 @@ import logging
 from node import Blockchain
 from network import P2PNetwork
 from api import create_app
+from miner import Miner
+from parameters import parameters  # Import the parameters from parameters.py
 import signal
 import sys
 import time
@@ -25,6 +27,12 @@ logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
 
 # Initialize the blockchain
 blockchain = Blockchain()
+
+# Initialize P2P Network
+p2p_network = P2PNetwork(host=parameters['p2p_host'], port=parameters['p2p_port'] + 1)
+
+# Initialize Miner
+miner = Miner(wallet_address=parameters['miner_wallet_address'], p2p_network=p2p_network, blockchain=blockchain)
 
 # Initialize shutdown flag
 shutdown_flag = threading.Event()
@@ -37,20 +45,26 @@ def start_node(shutdown_flag):
 def start_network(shutdown_flag):
     """Start the P2P network."""
     logging.info("Starting P2P network...")
-    p2p_network = P2PNetwork(host='0.0.0.0', port=5001)
     p2p_network.start_server()
+
+def start_miner(shutdown_flag):
+    """Start the mining process."""
+    logging.info("Starting miner...")
+    miner_thread = threading.Thread(target=miner.start_mining)
+    miner_thread.start()
+    return miner_thread
 
 def start_api(shutdown_flag):
     """Start the Flask API server."""
     logging.info("Starting API server...")
-    app = create_app(blockchain)
+    app = create_app(blockchain, miner)
     server = threading.Thread(target=serve_api, args=(app, shutdown_flag))
     server.start()
     return server
 
 def serve_api(app, shutdown_flag):
     """Serve the Flask API using Waitress."""
-    serve(app, host='0.0.0.0', port=5000, threads=4)
+    serve(app, host=parameters['host'], port=parameters['port'], threads=4)
 
 def signal_handler(sig, frame):
     """Handle shutdown signals."""
@@ -70,8 +84,8 @@ if __name__ == "__main__":
     logging.info("Initializing services...")
     node_thread = threading.Thread(target=start_node, args=(shutdown_flag,))
     network_thread = threading.Thread(target=start_network, args=(shutdown_flag,))
+    miner_thread = start_miner(shutdown_flag)
     api_thread = start_api(shutdown_flag)
-
     node_thread.start()
     network_thread.start()
 

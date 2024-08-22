@@ -14,17 +14,73 @@ import logging
 import json
 import time
 import threading
+import multiprocessing
+import psutil
 from pow import MineH
 from parameters import parameters
+from consensus import Consensus
 
 class Miner:
+    DEFAULT_MEMORY_USAGE_MB = 4  # Default memory usage per thread if not specified or invalid
+    DEFAULT_CPU_COUNT = 1  # Default CPU count if not specified or invalid
+
     def __init__(self, wallet_address, p2p_network, blockchain):
         self.wallet_address = wallet_address
-        self.mineh = MineH(memory_size=2**22, memory_update_interval=10)  # Increased memory size
+        self.p2p_network = p2p_network
+        self.blockchain = blockchain
+        self.consensus = Consensus(p2p_network)
+        self.is_mining = True
+        logging.basicConfig(filename=parameters['log_file'], level=logging.INFO)
+
+        # Validate and adjust memory usage
+        self.memory_usage = self.validate_memory_usage(parameters['memory_usage'])
+        
+        # Validate and adjust CPU count
+        self.cpu_count = self.validate_cpu_count(parameters['cpu_count'])
+        
+        # Initialize MineH with validated memory usage
+        memory_size_bytes = self.memory_usage * (2**20)  # Convert MB to Bytes
+        self.mineh = MineH(memory_size=memory_size_bytes, memory_update_interval=10)
+
+    def validate_memory_usage(self, memory_usage_mb):
+        """Validate and adjust memory usage based on system availability."""
+        total_memory_mb = psutil.virtual_memory().available // (2**20)  # Get available memory in MB
+        if memory_usage_mb <= 0 or memory_usage_mb > total_memory_mb:
+            logging.warning(f"Invalid or excessive memory usage specified ({memory_usage_mb}MB). Defaulting to {self.DEFAULT_MEMORY_USAGE_MB}MB per thread.")
+            return self.DEFAULT_MEMORY_USAGE_MB
+        return memory_usage_mb
+
+    def validate_cpu_count(self, cpu_count):
+        """Validate and adjust CPU count based on system availability."""
+        max_cpus = multiprocessing.cpu_count() - 1  # Leave 1 CPU free for system operations
+        if cpu_count <= 0 or cpu_count > max_cpus:
+            logging.warning(f"Invalid or excessive CPU count specified ({cpu_count}). Defaulting to {self.DEFAULT_CPU_COUNT} CPU.")
+            return self.DEFAULT_CPU_COUNT
+        return cpu_count
+
+    class Miner:
+        DEFAULT_MEMORY_USAGE_MB = 4  # Default memory usage per thread if not specified or invalid
+        DEFAULT_CPU_COUNT = 1  # Default CPU count if not specified or invalid
+
+    def __init__(self, wallet_address, p2p_network, blockchain):
+        self.wallet_address = wallet_address
         self.p2p_network = p2p_network
         self.blockchain = blockchain
         self.is_mining = True
+        self.total_hashes = 0
+        self.hashrate = 0
+        self.last_hashrate_calc = time.time()
         logging.basicConfig(filename=parameters['log_file'], level=logging.INFO)
+
+        # Validate and adjust memory usage
+        self.memory_usage = self.validate_memory_usage(parameters['memory_usage'])
+        
+        # Validate and adjust CPU count
+        self.cpu_count = self.validate_cpu_count(parameters['cpu_count'])
+        
+        # Initialize MineH with validated memory usage
+        memory_size_bytes = self.memory_usage * (2**20)  # Convert MB to Bytes
+        self.mineh = MineH(memory_size=memory_size_bytes, memory_update_interval=10)
 
     def mine(self):
         """Perform the mining process."""
@@ -40,18 +96,22 @@ class Miner:
                     "state_root": self.blockchain.state.get_root(),
                     "tx_root": self.blockchain.calculate_merkle_root(self.blockchain.current_transactions),
                     "timestamp": time.time(),
-                    "difficulty": self.blockchain.calculate_difficulty(),
+                    "difficulty": difficulty,
                     "miner": self.wallet_address,
                     "block_size": 0,
                     "transaction_count": len(self.blockchain.current_transactions)
                 }
 
-                logging.info(f"→ Starting PoW Hashing (Difficulty: {new_block_data['difficulty']})")
-
+                start_time = time.time()
                 nonce, valid_hash = self.mineh.mine(json.dumps(new_block_data, sort_keys=True), new_block_data['difficulty'])
+                end_time = time.time()
+                
+                # Calculate hashrate
+                self.total_hashes += nonce
+                self.update_hashrate()
+
                 new_block_data['nonce'] = nonce
                 new_block_data['block_hash'] = valid_hash
-
                 new_block_data['block_size'] = len(json.dumps(new_block_data).encode('utf-8'))
 
                 logging.debug(f"New block data: {json.dumps(new_block_data, indent=2)}")
@@ -65,15 +125,22 @@ class Miner:
                     self.blockchain.state.clear_transactions()
                     self.broadcast_block(block)
                     logging.info(f"→ PoW Submission for Block {new_block_data['block_number']} (Status: ✓ Accepted)")
-                    logging.info(f"  Hash: {new_block_data['block_hash']}")
-                else:
-                    logging.error(f"→ Will attempt new PoW for Block {new_block_data['block_number']}")
-
             except Exception as e:
                 logging.error(f"Error during mining: {e}")
 
-            # Remove or reduce sleep to increase CPU usage
-            time.sleep(0.1)  # Lowering sleep time to a small value
+            time.sleep(parameters['sleep_time'])  # Use configurable sleep time
+
+    def update_hashrate(self):
+        current_time = time.time()
+        time_diff = current_time - self.last_hashrate_calc
+        if time_diff > 0:
+            self.hashrate = self.total_hashes / time_diff
+            self.total_hashes = 0
+            self.last_hashrate_calc = current_time
+
+    def get_hashrate(self):
+        """Return the current hashrate."""
+        return self.hashrate
 
     def stop_mining(self):
         """Stops the mining process."""
@@ -89,6 +156,12 @@ class Miner:
         self.p2p_network.broadcast({'type': 'block', 'block': block_data})
 
     def start_mining(self):
-        """Start the mining process in a separate thread."""
-        mining_thread = threading.Thread(target=self.mine)
-        mining_thread.start()
+        """Start the mining process using the specified number of CPUs."""
+        threads = []
+        for _ in range(self.cpu_count):
+            mining_thread = threading.Thread(target=self.mine)
+            threads.append(mining_thread)
+            mining_thread.start()
+
+        for thread in threads:
+            thread.join()  # Ensure all threads are executed

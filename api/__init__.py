@@ -18,7 +18,7 @@ from .nfts import create_nfts_blueprint
 from .transactions import create_transactions_blueprint
 import logging
 
-def create_app(blockchain):
+def create_app(blockchain, miner):
     app = Flask(__name__)
 
     # Basic logging setup
@@ -26,7 +26,7 @@ def create_app(blockchain):
 
     # Registering the Blueprints with the blockchain instance
     app.register_blueprint(accounts_bp, url_prefix='/accounts')
-    app.register_blueprint(create_blockchain_blueprint(blockchain), url_prefix='/blockchain')
+    app.register_blueprint(create_blockchain_blueprint(blockchain, miner), url_prefix='/blockchain')
     app.register_blueprint(create_contracts_blueprint(blockchain), url_prefix='/contracts')
     app.register_blueprint(create_fts_blueprint(blockchain), url_prefix='/fts')
     app.register_blueprint(create_nfts_blueprint(blockchain), url_prefix='/nfts')

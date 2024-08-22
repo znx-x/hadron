@@ -7,63 +7,140 @@
 # from, out of or in connection with the software or the use or
 # other dealings in the software.
 
-# This module handles the blockchain consensus mechanism and ensures
-# all nodes work in synergy to keep the blockchain running.
+# This module handles the mining process, including finding valid
+# blocks and earning rewards.
 
-from server import blockchain
+import logging
+import json
+import time
+import threading
+import multiprocessing
+import psutil
 from pow import MineH
-from network import P2PNetwork
+from parameters import parameters
+from consensus import Consensus  # Ensure correct import
 
-class Consensus:
-    def __init__(self, p2p_network: P2PNetwork):
-        self.mineh = MineH()
+class Miner:
+    DEFAULT_MEMORY_USAGE_MB = 4  # Default memory usage per thread if not specified or invalid
+    DEFAULT_CPU_COUNT = 1  # Default CPU count if not specified or invalid
+
+    def __init__(self, wallet_address, p2p_network, blockchain):
+        self.wallet_address = wallet_address
         self.p2p_network = p2p_network
+        self.blockchain = blockchain
+        self.consensus = Consensus(p2p_network)
+        self.is_mining = True
+        logging.basicConfig(filename=parameters['log_file'], level=logging.INFO)
 
-    def adjust_difficulty(self, previous_blocks: list, target_time_per_block: int = 15) -> int:
-        """Adjusts the mining difficulty based on the time taken to mine the last blocks."""
-        total_time = previous_blocks[-1]['timestamp'] - previous_blocks[0]['timestamp']
-        average_time = total_time / len(previous_blocks)
-        if average_time < target_time_per_block:
-            return previous_blocks[-1]['difficulty'] + 1
-        elif average_time > target_time_per_block:
-            return max(previous_blocks[-1]['difficulty'] - 1, 1)
-        return previous_blocks[-1]['difficulty']
+        # Validate and adjust memory usage
+        self.memory_usage = self.validate_memory_usage(parameters['memory_usage'])
+        
+        # Validate and adjust CPU count
+        self.cpu_count = self.validate_cpu_count(parameters['cpu_count'])
+        
+        # Initialize MineH with validated memory usage
+        memory_size_bytes = self.memory_usage * (2**20)  # Convert MB to Bytes
+        self.mineh = MineH(memory_size=memory_size_bytes, memory_update_interval=10)
 
-    def achieve_consensus(self):
-        """Ensures all nodes in the network agree on the longest valid chain."""
-        longest_chain = blockchain.chain
-        for peer_chain in self.get_peer_chains():
-            if len(peer_chain) > len(longest_chain) and self.is_chain_valid(peer_chain):
-                longest_chain = peer_chain
-        if longest_chain != blockchain.chain:
-            blockchain.chain = longest_chain
+    def validate_memory_usage(self, memory_usage_mb):
+        """Validate and adjust memory usage based on system availability."""
+        total_memory_mb = psutil.virtual_memory().available // (2**20)  # Get available memory in MB
+        if memory_usage_mb <= 0 or memory_usage_mb > total_memory_mb:
+            logging.warning(f"Invalid or excessive memory usage specified ({memory_usage_mb}MB). Defaulting to {self.DEFAULT_MEMORY_USAGE_MB}MB per thread.")
+            return self.DEFAULT_MEMORY_USAGE_MB
+        return memory_usage_mb
 
-    def get_peer_chains(self):
-        """Retrieves blockchain data from connected peers."""
-        peer_chains = []
-        for peer_id, peer_socket in self.p2p_network.peers.items():
+    def validate_cpu_count(self, cpu_count):
+        """Validate and adjust CPU count based on system availability."""
+        max_cpus = multiprocessing.cpu_count() - 1  # Leave 1 CPU free for system operations
+        if cpu_count <= 0 or cpu_count > max_cpus:
+            logging.warning(f"Invalid or excessive CPU count specified ({cpu_count}). Defaulting to {self.DEFAULT_CPU_COUNT} CPU.")
+            return self.DEFAULT_CPU_COUNT
+        return cpu_count
+
+    def mine(self):
+        """Perform the mining process."""
+        while self.is_mining:
             try:
-                peer_socket.send(json.dumps({"type": "request_chain"}).encode('utf-8'))
-                data = peer_socket.recv(4096).decode('utf-8')
-                chain = json.loads(data)
-                if self.is_chain_valid(chain):
-                    peer_chains.append(chain)
+                last_block = self.blockchain.chain[-1]
+                previous_hash = last_block.get('block_hash', self.blockchain.hash(last_block))
+
+                # Adjust difficulty using the consensus mechanism
+                difficulty = self.consensus.adjust_difficulty(self.blockchain)
+
+                new_block_data = {
+                    "block_number": last_block['block_number'] + 1,
+                    "transactions": self.blockchain.current_transactions,
+                    "parent_hash": previous_hash,
+                    "state_root": self.blockchain.state.get_root(),
+                    "tx_root": self.blockchain.calculate_merkle_root(self.blockchain.current_transactions),
+                    "timestamp": time.time(),
+                    "difficulty": difficulty,
+                    "miner": self.wallet_address,
+                    "block_size": 0,
+                    "transaction_count": len(self.blockchain.current_transactions)
+                }
+
+                start_time = time.time()
+                nonce, valid_hash = self.mineh.mine(json.dumps(new_block_data, sort_keys=True), difficulty)
+                end_time = time.time()
+                
+                # Calculate hashrate
+                self.total_hashes += nonce
+                self.update_hashrate()
+
+                new_block_data['nonce'] = nonce
+                new_block_data['block_hash'] = valid_hash
+                new_block_data['block_size'] = len(json.dumps(new_block_data).encode('utf-8'))
+
+                logging.debug(f"New block data: {json.dumps(new_block_data, indent=2)}")
+
+                if self.validate_block(new_block_data):
+                    block = self.blockchain.new_block(
+                        proof=new_block_data['nonce'],
+                        previous_hash=new_block_data['parent_hash']
+                    )
+                    self.blockchain.state.update_balance(self.wallet_address, parameters['block_reward'])
+                    self.blockchain.state.clear_transactions()
+                    self.broadcast_block(block)
+                    logging.info(f"→ PoW Submission for Block {new_block_data['block_number']} (Status: ✓ Accepted)")
             except Exception as e:
-                print(f"Failed to retrieve chain from peer {peer_id}: {e}")
-        return peer_chains
+                logging.error(f"Error during mining: {e}")
 
-    def is_chain_valid(self, chain):
-        """Validates a blockchain."""
-        for i in range(1, len(chain)):
-            current_block = chain[i]
-            previous_block = chain[i - 1]
+            time.sleep(parameters['sleep_time'])  # Use configurable sleep time
 
-            # Check that the block's previous hash matches the hash of the previous block
-            if current_block['previous_hash'] != blockchain.hash_block(previous_block):
-                return False
+    def update_hashrate(self):
+        current_time = time.time()
+        time_diff = current_time - self.last_hashrate_calc
+        if time_diff > 0:
+            self.hashrate = self.total_hashes / time_diff
+            self.total_hashes = 0
+            self.last_hashrate_calc = current_time
 
-            # Check that the block's hash meets the difficulty criteria
-            if not self.mineh.is_valid_hash(current_block['hash'], current_block['difficulty']):
-                return False
+    def get_hashrate(self):
+        """Return the current hashrate."""
+        return self.hashrate
 
-        return True
+    def stop_mining(self):
+        """Stops the mining process."""
+        self.is_mining = False
+
+    def validate_block(self, block_data):
+        """Validate the mined block before adding it to the blockchain."""
+        return self.blockchain.validate_block(block_data)
+
+    def broadcast_block(self, block_data):
+        """Broadcast the mined block to the network."""
+        logging.info(f"→ Broadcasting Block: {block_data['block_number']}")
+        self.p2p_network.broadcast({'type': 'block', 'block': block_data})
+
+    def start_mining(self):
+        """Start the mining process using the specified number of CPUs."""
+        threads = []
+        for _ in range(self.cpu_count):
+            mining_thread = threading.Thread(target=self.mine)
+            threads.append(mining_thread)
+            mining_thread.start()
+
+        for thread in threads:
+            thread.join()  # Ensure all threads are executed

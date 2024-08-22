@@ -21,7 +21,8 @@ def install_packages():
         'pycryptodome',
         'PyQt5',
         'pynacl',
-        'waitress'
+        'waitress',
+        'psutil'
     ]
 
     for package in required_packages:

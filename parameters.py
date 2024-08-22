@@ -10,6 +10,7 @@
 import os
 import argparse
 import json
+import multiprocessing
 
 # Network and Node Parameters
 parameters = {
@@ -35,6 +36,8 @@ parameters = {
     # Node-specific parameters
     "host": "0.0.0.0",
     "port": 5000,
+    "p2p_host": "0.0.0.0",
+    "p2p_port": 5001,
     "log_file": "blockchain.log",
     "miner_wallet_address": "d95c02123362817f0b556e82f5d4ab3c0c2510f4",  # Default to the zero address
     
@@ -42,18 +45,23 @@ parameters = {
     "node_storage_full": 0,  # Number of blocks stored by FULL nodes
     "node_storage_access": 40320,  # Number of blocks stored by ACCESS nodes
     "node_storage_light": 240,  # Number of blocks stored by LIGHT nodes
+    
+     # Miner-specific parameters
+    "cpu_count": 2,  # Number of CPUs to be used; set to 0 will default to 1
+    "sleep_time": 0,  # Time to sleep between mining attempts (set to 0 to remove sleep)
+    "memory_usage": 8,  # Amount of memory to allocate per thread in MB; set to 0 will default to 4MB
 
     # Pre-funding allocations
     "allocations": [
- #       Example allocation structure
- #       {
- #           "address": "3b6a27bccebfb8b348b87f3ed82f9220c0f86a54",  # Example address
- #           "balance": 5000000000000  # 50,000 coins (in smallest unit, considering 10 decimals)
- #       },
- #       {
- #           "address": "7f6a9dbe8d3bb8f328b67c3ed86e9200c2f86a98",  # Another example address
- #           "balance": 2500000000000  # 25,000 coins (in smallest unit, considering 10 decimals)
- #       }
+    # Example allocation structure
+    #    {
+    #        "address": "3b6a27bccebfb8b348b87f3ed82f9220c0f86a54",  # Example address
+    #        "balance": 5000000000000  # 50,000 coins (in smallest unit, considering 10 decimals)
+    #    },
+    #    {
+    #        "address": "7f6a9dbe8d3bb8f328b67c3ed86e9200c2f86a98",  # Another example address
+    #        "balance": 2500000000000  # 25,000 coins (in smallest unit, considering 10 decimals)
+    #    }
     ]
 }
 
@@ -84,6 +92,9 @@ def override_with_cli_args():
     parser.add_argument("--network_id", help="Network ID", type=int)
     parser.add_argument("--block_reward", help="Block reward", type=int)
     parser.add_argument("--miner_wallet_address", help="Miner wallet address")
+    parser.add_argument("--cpu_count", help="CPU count for mining", type=int)
+    parser.add_argument("--sleep_time", help="Sleep time between mining attempts", type=float)
+    parser.add_argument("--memory_usage", help="Percentage of memory to use for mining", type=int)
 
     args = parser.parse_args()
     
@@ -102,8 +113,18 @@ def override_with_cli_args():
         parameters["block_reward"] = args.block_reward
     if args.miner_wallet_address:
         parameters["miner_wallet_address"] = args.miner_wallet_address
+    if args.cpu_count:
+        parameters["cpu_count"] = args.cpu_count
+    if args.sleep_time:
+        parameters["sleep_time"] = args.sleep_time
+    if args.memory_usage:
+        parameters["memory_usage"] = args.memory_usage
 
 # Initialize Configuration
 load_config_from_file()
 override_with_env_vars()
 override_with_cli_args()
+
+# Adjust CPU count if set to 0
+if parameters['cpu_count'] == 0:
+    parameters['cpu_count'] = multiprocessing.cpu_count() - 1  # Leave 1 CPU free

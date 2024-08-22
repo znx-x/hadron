@@ -1,5 +1,3 @@
-# api/blockchain.py
-
 # This software is provided "as is", without warranty of any kind,
 # express or implied, including but not limited to the warranties
 # of merchantability, fitness for a particular purpose and
@@ -11,7 +9,7 @@
 
 from flask import Blueprint, jsonify
 
-def create_blockchain_blueprint(blockchain):
+def create_blockchain_blueprint(blockchain, miner):
     blockchain_bp = Blueprint('blockchain', __name__)
 
     # Get Blockchain Info
@@ -59,5 +57,23 @@ def create_blockchain_blueprint(blockchain):
     @blockchain_bp.route('/length', methods=['GET'])
     def get_blockchain_length():
         return jsonify({'length': len(blockchain.chain)})
+
+    # Get Hashrate
+    @blockchain_bp.route('/hashrate', methods=['GET'])
+    def get_hashrate():
+        hashrate = miner.hashrate  # Get the current hashrate from the miner instance
+        return jsonify({'hashrate': hashrate})
+
+    # Get Average Block Time
+    @blockchain_bp.route('/blocktime', methods=['GET'])
+    def get_block_time():
+        if len(blockchain.chain) > 1:
+            times = [
+                blockchain.chain[i]['timestamp'] - blockchain.chain[i-1]['timestamp']
+                for i in range(1, len(blockchain.chain))
+            ]
+            average_block_time = sum(times) / len(times)
+            return jsonify({'block_time': average_block_time})
+        return jsonify({'block_time': None})
 
     return blockchain_bp

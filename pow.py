@@ -15,16 +15,17 @@ import time
 from cryptography import Qhash3512
 
 class MineH:
-    def __init__(self, memory_size=2**22, memory_update_interval=10):
+    def __init__(self, memory_size, memory_update_interval=10):
         """
-        Initializes the MineH algorithm with a larger memory size and more frequent updates.
+        Initializes the MineH algorithm with a specified memory size and update interval.
         :param memory_size: Size of the memory array used in the algorithm.
         :param memory_update_interval: Time interval (in seconds) to update the memory.
         """
         self.memory_size = memory_size
         self.memory = bytearray(os.urandom(memory_size))
-        self.last_memory_update = time.time()
         self.memory_update_interval = memory_update_interval
+        self.memory_segment_size = 64  # Set a smaller memory segment size for each operation
+        self.last_memory_update = time.time()
 
     def mine(self, block_data: str, difficulty: int):
         """
@@ -34,6 +35,7 @@ class MineH:
         :return: A tuple containing the valid nonce and the corresponding valid hash.
         """
         nonce = 0
+        
         while True:
             self._maybe_update_memory()
 
@@ -61,5 +63,5 @@ class MineH:
         :param nonce: The current nonce used in the mining process.
         :return: A segment of the memory array as a string.
         """
-        start_index = nonce % self.memory_size
-        return self.memory[start_index:].decode('latin1')
+        start_index = nonce % (self.memory_size - self.memory_segment_size)
+        return self.memory[start_index:start_index + self.memory_segment_size].decode('latin1')

@@ -49,98 +49,131 @@ def fetch_data_directory():
 def handle_command(command):
     """Handles the commands entered by the user."""
     try:
-        if command.startswith("accounts.create"):
+        # Commands without additional arguments
+        if command == "blockchain.info":
+            response = requests.get(f"{API_URL}/blockchain/info")
+            pretty_print(response.json())
+
+        elif command == "blockchain.latest":
+            response = requests.get(f"{API_URL}/blockchain/latest")
+            pretty_print(response.json())
+
+        elif command == "blockchain.hashRate":
+            response = requests.get(f"{API_URL}/blockchain/hashrate")
+            pretty_print(response.json())
+
+        elif command == "blockchain.blockTime":
+            response = requests.get(f"{API_URL}/blockchain/blocktime")
+            pretty_print(response.json())
+
+        # Commands with one argument
+        elif command.startswith("blockchain.block "):
+            _, index = command.split(maxsplit=1)
+            response = requests.get(f"{API_URL}/blockchain/block/{index}")
+            pretty_print(response.json())
+
+        elif command.startswith("blockchain.blockHash "):
+            _, block_hash = command.split(maxsplit=1)
+            response = requests.get(f"{API_URL}/blockchain/blockhash/{block_hash}")
+            pretty_print(response.json())
+
+        elif command.startswith("blockchain.transaction "):
+            _, tx_hash = command.split(maxsplit=1)
+            response = requests.get(f"{API_URL}/blockchain/transaction/{tx_hash}")
+            pretty_print(response.json())
+
+        elif command.startswith("accounts.balance "):
+            _, address = command.split(maxsplit=1)
+            response = requests.get(f"{API_URL}/accounts/balance/{address}")
+            pretty_print(response.json())
+
+        elif command == "accounts.list":
+            response = requests.get(f"{API_URL}/accounts/list")
+            pretty_print(response.json())
+
+        elif command.startswith("accounts.create"):
             password = getpass("Enter a password for the new wallet: ")
             response = requests.post(f"{API_URL}/accounts/create", json={"password": password})
             pretty_print(response.json())
 
-        elif command.startswith("accounts.balance"):
-            _, address = command.split()
-            response = requests.get(f"{API_URL}/accounts/balance/{address}")
-            pretty_print(response.json())
-
-        elif command.startswith("accounts.list"):
-            response = requests.get(f"{API_URL}/accounts/list")
-            pretty_print(response.json())
-
-        elif command.startswith("accounts.import"):
-            _, private_key = command.split()
+        elif command.startswith("accounts.import "):
+            _, private_key = command.split(maxsplit=1)
             password = getpass("Enter a password to encrypt this wallet: ")
             response = requests.post(f"{API_URL}/accounts/import", json={"private_key": private_key, "password": password})
             pretty_print(response.json())
 
-        elif command.startswith("accounts.export"):
-            _, address = command.split()
+        elif command.startswith("accounts.export "):
+            _, address = command.split(maxsplit=1)
             response = requests.get(f"{API_URL}/accounts/export/{address}")
             pretty_print(response.json())
 
-        elif command.startswith("blockchain.info"):
-            response = requests.get(f"{API_URL}/blockchain/info")
-            pretty_print(response.json())
-
-        elif command.startswith("blockchain.latest"):
-            response = requests.get(f"{API_URL}/blockchain/latest")
-            pretty_print(response.json())
-
-        elif command.startswith("blockchain.block"):
-            _, index = command.split()
-            response = requests.get(f"{API_URL}/blockchain/block/{index}")
-            pretty_print(response.json())
-
-        elif command.startswith("blockchain.transaction"):
-            _, tx_hash = command.split()
-            response = requests.get(f"{API_URL}/blockchain/transaction/{tx_hash}")
-            pretty_print(response.json())
-
-        elif command.startswith("contracts.deploy"):
-            _, bytecode, sender = command.split()
-            response = requests.post(f"{API_URL}/contracts/deploy", json={"bytecode": bytecode, "sender": sender})
-            pretty_print(response.json())
-
-        elif command.startswith("contracts.call"):
-            _, contract_address, method_name, sender = command.split()
-            method_params = {}
-            response = requests.post(f"{API_URL}/contracts/call", json={"contract_address": contract_address, "method_name": method_name, "method_params": method_params, "sender": sender})
-            pretty_print(response.json())
-
-        elif command.startswith("fts.create"):
-            _, name, symbol, initial_supply, owner = command.split()
-            response = requests.post(f"{API_URL}/fts/create", json={
-                "name": name, "symbol": symbol, "initial_supply": int(initial_supply), "owner": owner
+        elif command.startswith("transactions.create "):
+            _, sender, recipient, amount = command.split()
+            password = getpass(f"Enter password for {sender}: ")
+            response = requests.post(f"{API_URL}/transactions/create", json={
+                "sender": sender,
+                "recipient": recipient,
+                "amount": int(amount),
+                "password": password
             })
             pretty_print(response.json())
 
-        elif command.startswith("fts.balance"):
+        elif command.startswith("contracts.deploy "):
+            _, bytecode, sender = command.split(maxsplit=2)
+            response = requests.post(f"{API_URL}/contracts/deploy", json={"bytecode": bytecode, "sender": sender})
+            pretty_print(response.json())
+
+        elif command.startswith("contracts.call "):
+            _, contract_address, method_name, sender = command.split(maxsplit=3)
+            method_params = {}
+            response = requests.post(f"{API_URL}/contracts/call", json={
+                "contract_address": contract_address,
+                "method_name": method_name,
+                "method_params": method_params,
+                "sender": sender
+            })
+            pretty_print(response.json())
+
+        elif command.startswith("fts.create "):
+            _, name, symbol, initial_supply, owner = command.split()
+            response = requests.post(f"{API_URL}/fts/create", json={
+                "name": name,
+                "symbol": symbol,
+                "initial_supply": int(initial_supply),
+                "owner": owner
+            })
+            pretty_print(response.json())
+
+        elif command.startswith("fts.balance "):
             _, symbol, address = command.split()
             response = requests.get(f"{API_URL}/fts/balance", params={"symbol": symbol, "address": address})
             pretty_print(response.json())
 
-        elif command.startswith("fts.mint"):
+        elif command.startswith("fts.mint "):
             _, symbol, to, amount = command.split()
             response = requests.post(f"{API_URL}/fts/mint", json={
-                "symbol": symbol, "to": to, "amount": int(amount)
+                "symbol": symbol,
+                "to": to,
+                "amount": int(amount)
             })
             pretty_print(response.json())
 
-        elif command.startswith("fts.transfer"):
+        elif command.startswith("fts.transfer "):
             _, symbol, from_address, to_address, amount = command.split()
             response = requests.post(f"{API_URL}/fts/transfer", json={
-                "symbol": symbol, "from": from_address, "to": to_address, "amount": int(amount)
+                "symbol": symbol,
+                "from": from_address,
+                "to": to_address,
+                "amount": int(amount)
             })
             pretty_print(response.json())
 
-        elif command.startswith("fts.burn"):
+        elif command.startswith("fts.burn "):
             _, symbol, from_address, amount = command.split()
             response = requests.post(f"{API_URL}/fts/burn", json={
-                "symbol": symbol, "from": from_address, "amount": int(amount)
-            })
-            pretty_print(response.json())
-
-        elif command.startswith("transactions.create"):
-            _, sender, recipient, amount = command.split()
-            password = getpass(f"Enter password for {sender}: ")
-            response = requests.post(f"{API_URL}/transactions/create", json={
-                "sender": sender, "recipient": recipient, "amount": int(amount), "password": password
+                "symbol": symbol,
+                "from": from_address,
+                "amount": int(amount)
             })
             pretty_print(response.json())
 

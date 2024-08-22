@@ -15,7 +15,6 @@ from cryptography import Qhash3512
 from parameters import parameters
 from database import BlockchainDatabase
 from state import BlockchainState
-from miner import Miner
 from network import P2PNetwork
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
@@ -29,7 +28,6 @@ class Blockchain:
         self.db = BlockchainDatabase()
         self.miner_wallet_address = parameters.get("miner_wallet_address", "0000000000000000000000000000000000000000")
         self.p2p_network = P2PNetwork()
-        self.miner = Miner(self.miner_wallet_address, self.p2p_network, self)
         
         logging.info("Blockchain node initializing...")
         self.load_chain()
@@ -61,7 +59,7 @@ class Blockchain:
             'parent_hash': previous_hash or self.hash(self.chain[-1]) if self.chain else '1',
             'state_root': self.state.get_root(),
             'tx_root': self.calculate_merkle_root(self.current_transactions),
-            'difficulty': self.calculate_difficulty(),
+            'difficulty': None,  # Difficulty will be set by consensus
             'nonce': proof,
             'timestamp': time.time(),
             'miner': self.miner_wallet_address,
@@ -98,24 +96,6 @@ class Blockchain:
             transaction_hashes = [hash_pair(transaction_hashes[i], transaction_hashes[i + 1]) for i in range(0, len(transaction_hashes), 2)]
 
         return transaction_hashes[0]
-
-    def calculate_difficulty(self):
-        """Calculate the difficulty level for the next block."""
-        if len(self.chain) < 2:
-            return parameters['initial_difficulty']
-        
-        last_block = self.chain[-1]
-        previous_block = self.chain[-2]
-
-        actual_time = last_block['timestamp'] - previous_block['timestamp']
-        target_time = parameters['block_time']
-
-        if actual_time < target_time * 0.75:
-            return last_block['difficulty'] + 1
-        elif actual_time > target_time * 1.25:
-            return max(1, last_block['difficulty'] - 1)
-        else:
-            return last_block['difficulty']
 
     def calculate_block_size(self):
         """Calculate the size of the current block."""
@@ -189,13 +169,11 @@ class Blockchain:
         last_block = self.chain[-1]
 
         if block['parent_hash'] != last_block['block_hash']:
-            logging.error(f"→ Invalid block: parent hash does not match. Expected {last_block['block_hash']}, got {block['parent_hash']}. Block number: {block['block_number']}")
             return False
 
         recalculated_hash = self.hash(block)
 
         if not Qhash3512.is_valid_hash(recalculated_hash, block['difficulty']):
-            logging.error(f"→ PoW Submission for Block {block['block_number']} (Status: ✗ Rejected)")
             return False
 
         logging.info(f"→ Validated PoW for Block: {block['block_number']}")
