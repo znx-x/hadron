@@ -10,6 +10,7 @@
 import json
 import threading
 import time
+import hashlib  # Import hashlib for block hashing
 from hashlib import sha256
 from cryptography import Qhash3512
 from parameters import parameters
@@ -57,7 +58,7 @@ class Blockchain:
         """Create a new block and reset the transaction pool."""
         block = {
             'block_number': len(self.chain) + 1,
-            'parent_hash': previous_hash or self.hash(self.chain[-1]) if self.chain else '1',
+            'parent_hash': previous_hash or self.hash_block(self.chain[-1]) if self.chain else '1',
             'state_root': self.state.get_root(),
             'tx_root': self.calculate_merkle_root(self.current_transactions),
             'difficulty': self.calculate_difficulty(),
@@ -70,7 +71,7 @@ class Blockchain:
         }
 
         self.current_transactions = []
-        block_hash = self.hash(block)
+        block_hash = self.hash_block(block)
         block['block_hash'] = block_hash  # Store the block hash in the block itself
         self.chain.append(block)
         self.db.save_block(block_hash, block)
@@ -156,10 +157,16 @@ class Blockchain:
         return base_fee + additional_fee
 
     @staticmethod
-    def hash(block):
+    def hash_block(block):
         """Generate a hash for a block."""
-        block_string = json.dumps(block, sort_keys=True).encode()
-        return Qhash3512.generate_hash(block_string.decode())
+        block_data = json.dumps(block, sort_keys=True)
+        combined_data = f"{block_data}{block['nonce']}".encode('utf-8')  # Use the nonce as part of the hash
+        recalculated_hash = hashlib.sha512(combined_data).hexdigest()
+    
+        # Log the recalculated hash and combined data for debugging
+        print(f"DEBUG: Recalculated hash: {recalculated_hash}, Combined Data: {combined_data}")
+    
+        return recalculated_hash
 
     def validate_block(self, block):
         """Validate a block before adding it to the chain."""
@@ -171,7 +178,7 @@ class Blockchain:
             return False
 
         # Recreate the block hash using the block data and nonce
-        recalculated_hash = self.hash(block)
+        recalculated_hash = self.hash_block(block)
         
         # Log the entire block for debugging
         logging.debug(f"Validating block: {json.dumps(block, indent=2)}")

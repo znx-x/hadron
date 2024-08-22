@@ -15,6 +15,7 @@ from parameters import parameters
 import logging
 import json
 import time
+import threading  # Ensure threading is imported
 
 class Miner:
     def __init__(self, wallet_address, p2p_network, blockchain):
@@ -29,7 +30,7 @@ class Miner:
         while True:
             try:
                 last_block = self.blockchain.chain[-1]
-                previous_hash = last_block.get('block_hash', self.blockchain.hash(last_block))
+                previous_hash = last_block.get('block_hash', self.blockchain.hash_block(last_block))
 
                 new_block_data = {
                     "block_number": last_block['block_number'] + 1,
