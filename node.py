@@ -22,6 +22,7 @@ logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
 
 class Blockchain:
     def __init__(self):
+        """Initialize the blockchain node with state, database, miner, and network."""
         self.chain = []
         self.current_transactions = []
         self.state = BlockchainState()
@@ -29,27 +30,36 @@ class Blockchain:
         self.miner_wallet_address = parameters.get("miner_wallet_address", "0000000000000000000000000000000000000000")
         self.p2p_network = P2PNetwork()
         self.miner = Miner(self.miner_wallet_address, self.p2p_network, self)
+        
         logging.info("Blockchain node initializing...")
         self.load_chain()
 
-        if len(self.chain) == 0:
-            self.new_block(previous_hash='1', proof=100)
-            logging.info("Genesis block created.")
-            time.sleep(2)
-
+        if not self.chain:
+            self._create_genesis_block()
+        
         logging.info("Blockchain loaded.")
 
     def load_chain(self):
+        """Load the blockchain from the database."""
         block = self.db.get_last_block()
         chain = []
+
         while block:
             chain.append(block)
             block = self.db.get_block(block['parent_hash'])
+        
         chain.reverse()
         self.chain = chain
         logging.info(f"{len(self.chain)} blocks loaded from the database.")
 
+    def _create_genesis_block(self):
+        """Create the genesis block if the chain is empty."""
+        self.new_block(previous_hash='1', proof=100)
+        logging.info("Genesis block created.")
+        time.sleep(2)
+
     def new_block(self, proof, previous_hash=None):
+        """Create a new block and add it to the blockchain."""
         block = {
             'block_number': len(self.chain) + 1,
             'parent_hash': previous_hash or self.hash_block(self.chain[-1]) if self.chain else '1',
@@ -64,16 +74,17 @@ class Blockchain:
             'transactions': self.current_transactions
         }
 
-        self.current_transactions = []
         block_hash = self.hash_block(block)
         block['block_hash'] = block_hash
         self.chain.append(block)
         self.db.save_block(block_hash, block)
         logging.info(f"New block mined: {block_hash} at height {block['block_number']}")
         self.state.clear_transactions()
+        self.current_transactions = []
         return block
 
     def calculate_merkle_root(self, transactions):
+        """Calculate the Merkle root of the transaction list."""
         if not transactions:
             return None
 
@@ -90,6 +101,7 @@ class Blockchain:
         return transaction_hashes[0]
 
     def calculate_difficulty(self):
+        """Calculate the difficulty level for the next block."""
         if len(self.chain) < 2:
             return parameters['initial_difficulty']
         
@@ -107,11 +119,13 @@ class Blockchain:
             return last_block['difficulty']
 
     def calculate_block_size(self):
+        """Calculate the size of the current block."""
         if not self.chain:
             return 0
         return len(json.dumps(self.chain[-1]).encode('utf-8'))
 
     def new_transaction(self, sender, recipient, amount, text=None, token=None, nft=None):
+        """Create a new transaction and add it to the current transaction list."""
         fee = self.calculate_fee(amount, text)
         total_cost = amount + fee
 
@@ -138,6 +152,7 @@ class Blockchain:
         return "Insufficient funds"
 
     def calculate_fee(self, amount, text=None):
+        """Calculate the fee for a transaction based on its size."""
         base_fee = parameters['raw_tx_fee'] / (10 ** parameters['decimals'])
         additional_fee = 0
         if text:
@@ -146,15 +161,29 @@ class Blockchain:
         return base_fee + additional_fee
 
     def hash_block(self, block):
-        block_data = json.dumps(block, sort_keys=True)
-        combined_data = f"{block_data}{block['nonce']}"
+        """Calculate the hash of a block."""
+        block_data = json.dumps({
+            'block_number': block['block_number'],
+            'parent_hash': block['parent_hash'],
+            'state_root': block['state_root'],
+            'tx_root': block['tx_root'],
+            'difficulty': block['difficulty'],
+            'nonce': block['nonce'],
+            'timestamp': block['timestamp'],
+            'miner': block['miner'],
+            'block_size': block['block_size'],
+            'transaction_count': block['transaction_count'],
+            'transactions': block['transactions']
+        }, sort_keys=True)
+
+        memory_data = self.miner.mineh.memory[:self.miner.mineh.memory_size]
+        combined_data = f"{block_data}{memory_data.decode('latin1')}"
+
         recalculated_hash = Qhash3512.generate_hash(combined_data)
-    
-        print(f"DEBUG: Recalculated hash: {recalculated_hash}, Combined Data: {combined_data}")
-    
         return recalculated_hash
 
     def validate_block(self, block):
+        """Validate the integrity and proof-of-work of a block."""
         last_block = self.chain[-1]
 
         if block['parent_hash'] != last_block['block_hash']:
@@ -162,9 +191,6 @@ class Blockchain:
             return False
 
         recalculated_hash = self.hash_block(block)
-        
-        logging.debug(f"Validating block: {json.dumps(block, indent=2)}")
-        logging.debug(f"Expected recalculated hash: {recalculated_hash}")
 
         if not Qhash3512.is_valid_hash(recalculated_hash, block['difficulty']):
             logging.error(f"Invalid block: proof of work is not valid. Expected hash: {recalculated_hash}, Block hash: {block['block_hash']}. Block number: {block['block_number']}")
@@ -174,18 +200,22 @@ class Blockchain:
         return True
 
     def mine_block(self):
+        """Trigger the mining process for a new block."""
         return self.miner.mine()
 
     def run_node(self, shutdown_flag):
+        """Run the blockchain node, handling mining and networking."""
         self.mining_thread = threading.Thread(target=self.consensus_algorithm, args=(shutdown_flag,))
         self.mining_thread.start()
 
     def consensus_algorithm(self, shutdown_flag):
+        """Continuously mine blocks as long as the shutdown flag is not set."""
         while not shutdown_flag.is_set():
             self.mine_block()
             time.sleep(parameters['block_time'])
 
     def stop_node(self):
+        """Stop the blockchain node and clean up resources."""
         logging.info("Stopping blockchain node...")
         if self.mining_thread is not None:
             self.mining_thread.join()
