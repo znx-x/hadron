@@ -10,8 +10,8 @@
 # This module handles the mining process, including finding valid
 # blocks and earning rewards.
 
-import logging
 import json
+import logging
 import time
 import threading
 import multiprocessing
@@ -48,7 +48,6 @@ class Miner:
         self.consensus = Consensus(p2p_network, blockchain, self.mineh)
 
     def validate_memory_usage(self, memory_usage_mb):
-        """Validate and adjust memory usage based on system availability."""
         total_memory_mb = psutil.virtual_memory().available // (2**20)  # Get available memory in MB
         if memory_usage_mb <= 0 or memory_usage_mb > total_memory_mb:
             logging.warning(f"Invalid or excessive memory usage specified ({memory_usage_mb}MB). Defaulting to {self.DEFAULT_MEMORY_USAGE_MB}MB per thread.")
@@ -56,7 +55,6 @@ class Miner:
         return memory_usage_mb
 
     def validate_cpu_count(self, cpu_count):
-        """Validate and adjust CPU count based on system availability."""
         max_cpus = multiprocessing.cpu_count() - 1  # Leave 1 CPU free for system operations
         if cpu_count <= 0 or cpu_count > max_cpus:
             logging.warning(f"Invalid or excessive CPU count specified ({cpu_count}). Defaulting to {self.DEFAULT_CPU_COUNT} CPU.")
@@ -65,6 +63,7 @@ class Miner:
 
     def mine(self):
         """Perform the mining process."""
+        scale_factor = 10**8
         while self.is_mining:
             try:
                 last_block = self.blockchain.chain[-1]
@@ -83,9 +82,10 @@ class Miner:
                 }
 
                 start_time = time.time()
-                nonce, valid_hash = self.mineh.mine(json.dumps(new_block_data, sort_keys=True), new_block_data['difficulty'])
+                # Ensure difficulty is passed as an integer to the mining process
+                nonce, valid_hash = self.mineh.mine(json.dumps(new_block_data, sort_keys=True), new_block_data['difficulty'] // scale_factor)
                 end_time = time.time()
-                
+
                 # Calculate hashrate
                 self.total_hashes += nonce
                 self.update_hashrate()
@@ -108,7 +108,7 @@ class Miner:
             except Exception as e:
                 logging.error(f"Error during mining: {e}")
 
-            time.sleep(parameters['sleep_time'])  # Use configurable sleep time
+            time.sleep(parameters['sleep_time'])
 
     def update_hashrate(self):
         current_time = time.time()

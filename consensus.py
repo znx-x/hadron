@@ -11,8 +11,10 @@
 # all nodes work in synergy to keep the blockchain running.
 
 import json
+import logging
 from pow import MineH
 from network import P2PNetwork
+from parameters import parameters
 
 class Consensus:
     def __init__(self, p2p_network: P2PNetwork, blockchain, mineh):
@@ -20,34 +22,54 @@ class Consensus:
         self.p2p_network = p2p_network
         self.blockchain = blockchain
 
-    def adjust_difficulty(self, previous_blocks: list, target_time_per_block: int = 15, adjustment_interval: int = 10) -> int:
+    def adjust_difficulty(self, previous_blocks: list) -> int:
         """
-        Adjusts the mining difficulty based on the time taken to mine the last blocks, similar to Bitcoin or Ethereum.
-        
+        Adjusts the mining difficulty based on the time taken to mine the last blocks.
+
         :param previous_blocks: List of previous blocks to consider for difficulty adjustment.
-        :param target_time_per_block: Target time per block in seconds.
-        :param adjustment_interval: Number of blocks after which to adjust the difficulty.
-        :return: New difficulty level.
+        :return: New difficulty level (scaled by 10^8).
         """
-        
-        # Only adjust difficulty after every 'adjustment_interval' number of blocks
-        if len(previous_blocks) < adjustment_interval:
-            return previous_blocks[-1]['difficulty']
-        
-        # Calculate the total time taken to mine the last 'adjustment_interval' blocks
-        total_time = previous_blocks[-1]['timestamp'] - previous_blocks[-adjustment_interval]['timestamp']
-        
-        # Calculate the expected time for these blocks
+        target_time_per_block = parameters['block_time']  # Use the block time from parameters directly
+        adjustment_interval = parameters['difficulty_adjustment_period']
+        scale_factor = 10**8
+
+        if len(previous_blocks) < adjustment_interval + 1:
+            return parameters['initial_difficulty']
+
+        # Fetch the timestamps for the blocks used in the adjustment
+        last_block_time = previous_blocks[-1]['timestamp']
+        first_block_in_interval_time = previous_blocks[-(adjustment_interval + 1)]['timestamp']
+        total_time = last_block_time - first_block_in_interval_time
+
+        # Expected total time for the blocks
         expected_time = target_time_per_block * adjustment_interval
-        
-        # Calculate the adjustment factor
-        adjustment_factor = total_time / expected_time
-        
-        # Adjust difficulty based on the adjustment factor
-        new_difficulty = int(previous_blocks[-1]['difficulty'] * (1 / adjustment_factor))
-        
-        # Ensure the new difficulty is at least 1
-        return max(new_difficulty, 1)
+
+        # Calculate the new difficulty
+        adjustment_ratio = total_time / expected_time  # Adjust ratio should be total_time/expected_time
+        current_difficulty = previous_blocks[-1]['difficulty']
+
+        # Calculate the potential new difficulty
+        new_difficulty = int(current_difficulty / adjustment_ratio)
+
+        # Ensure the adjustment is capped to a maximum of 10% increase or decrease
+        max_increase = int(current_difficulty * parameters['max_difficulty_increase'])
+        max_decrease = int(current_difficulty * parameters['max_difficulty_decrease'])
+
+        # Apply the cap to the adjustment
+        if new_difficulty > max_increase:
+            new_difficulty = max_increase
+        elif new_difficulty < max_decrease:
+            new_difficulty = max_decrease
+
+        # Ensure the new difficulty does not fall below the minimum threshold
+        new_difficulty = max(new_difficulty, 100000000)
+
+#        logging.info(f"Difficulty adjusted from {previous_blocks[-1]['difficulty']} to {new_difficulty} "
+#                    f"based on total time {total_time:.2f}s (expected {expected_time:.2f}s)")
+
+#        logging.info(f"Proposed Difficuty Adjustment: {new_difficulty}")
+
+        return new_difficulty
 
     def achieve_consensus(self):
         """Ensures all nodes in the network agree on the longest valid chain."""

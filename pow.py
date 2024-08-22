@@ -24,7 +24,7 @@ class MineH:
         self.memory_size = memory_size
         self.memory = bytearray(os.urandom(memory_size))
         self.memory_update_interval = memory_update_interval
-        self.memory_segment_size = 64  # Set a smaller memory segment size for each operation
+        self.memory_segment_size = 64  # Keep segment size manageable
         self.last_memory_update = time.time()
 
     def mine(self, block_data: str, difficulty: int):
@@ -35,13 +35,16 @@ class MineH:
         :return: A tuple containing the valid nonce and the corresponding valid hash.
         """
         nonce = 0
-        
+
         while True:
             self._maybe_update_memory()
 
-            combined_data = f"{block_data}{nonce}{self._get_memory_segment(nonce)}"
-            hash_result = Qhash3512.generate_hash(combined_data)
+            # Optimization: Avoid unnecessary string concatenation in the loop
+            combined_data = f"{block_data}{nonce}"
+            memory_segment = self._get_memory_segment(nonce)
+            hash_result = Qhash3512.generate_hash(combined_data + memory_segment)
 
+            # Ensure difficulty is treated as an integer
             if Qhash3512.is_valid_hash(hash_result, difficulty):
                 return nonce, hash_result
 

@@ -30,8 +30,19 @@ class Qhash3512:
     
     @staticmethod
     def is_valid_hash(hash_result: str, difficulty: int) -> bool:
-        """Checks if the hash meets the difficulty criteria."""
-        target = '0' * difficulty
+        """
+        Checks if the hash meets the difficulty criteria.
+        :param hash_result: The hash to validate.
+        :param difficulty: The difficulty as an integer scaled by 10^8.
+        :return: True if valid, False otherwise.
+        """
+        # Calculate the required number of leading zeros based on scaled difficulty
+        scale_factor = 10**8
+        leading_zeros = difficulty // scale_factor
+        
+        # Generate the target string with the required number of leading zeros
+        target = '0' * leading_zeros
+        
         return hash_result.startswith(target)
 
     @staticmethod
