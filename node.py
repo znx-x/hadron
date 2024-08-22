@@ -41,9 +41,15 @@ class Blockchain:
     def load_chain(self):
         """Load the existing blockchain from the database."""
         block = self.db.get_last_block()
+        chain = []
         while block:
-            self.chain.append(block)
-            block = self.db.get_block(block['block_hash'])
+            chain.append(block)
+            # Fetch the previous block using its hash
+            block = self.db.get_block(block['parent_hash'])
+        
+        # The chain is built in reverse order, so we need to reverse it
+        chain.reverse()
+        self.chain = chain
         logging.info(f"{len(self.chain)} blocks loaded from the database.")
 
     def new_block(self, proof, previous_hash=None):
