@@ -10,55 +10,58 @@
 # This module handles the mining process, including finding valid
 # blocks and earning rewards.
 
-from server import blockchain
 from pow import MineH
-from consensus import Consensus
 from parameters import parameters
-from network import P2PNetwork
-import threading
-import time
 import logging
+import json
+import time
 
 class Miner:
-    def __init__(self, wallet_address, p2p_network):
+    def __init__(self, wallet_address, p2p_network, blockchain):
         self.wallet_address = wallet_address
         self.mineh = MineH()
-        self.consensus = Consensus()
         self.p2p_network = p2p_network
-        self.is_mining = False
+        self.blockchain = blockchain
         logging.basicConfig(filename=parameters['log_file'], level=logging.INFO)
 
     def mine(self):
         """Perform the mining process."""
-        self.is_mining = True
-        while self.is_mining:
+        while True:
             try:
-                last_block = blockchain.chain[-1]
+                last_block = self.blockchain.chain[-1]
+                previous_hash = last_block.get('block_hash', self.blockchain.hash(last_block))
+
                 new_block_data = {
-                    "index": last_block['index'] + 1,
-                    "transactions": blockchain.current_transactions,
-                    "previous_hash": blockchain.hash(last_block),
+                    "block_number": last_block['block_number'] + 1,
+                    "transactions": self.blockchain.current_transactions,
+                    "parent_hash": previous_hash,
                     "timestamp": time.time(),
-                    "difficulty": self.consensus.adjust_difficulty(blockchain.chain[-parameters['epoch']:])
+                    "difficulty": self.blockchain.calculate_difficulty()
                 }
 
                 logging.info(f"Mining new block with difficulty: {new_block_data['difficulty']}")
 
-                nonce = self.mineh.mine(str(new_block_data), new_block_data['difficulty'])
-                new_block_data['proof'] = nonce
-                new_block_data['hash'] = blockchain.hash(new_block_data)
+                # Mine and get the nonce and valid hash
+                nonce, valid_hash = self.mineh.mine(json.dumps(new_block_data, sort_keys=True), new_block_data['difficulty'])
+                new_block_data['nonce'] = nonce
+                new_block_data['block_hash'] = valid_hash  # Use the valid hash from the mining process
+
+                logging.debug(f"New block data: {json.dumps(new_block_data, indent=2)}")
 
                 if self.validate_block(new_block_data):
-                    blockchain.new_block(new_block_data['proof'], new_block_data['previous_hash'])
-                    blockchain.state.update_balance(self.wallet_address, parameters['block_reward'])
-                    blockchain.state.clear_transactions()
-                    self.broadcast_block(new_block_data)
-                    logging.info(f"Successfully mined block {new_block_data['index']} with hash {new_block_data['hash']}")
+                    block = self.blockchain.new_block(new_block_data['nonce'], new_block_data['parent_hash'])
+                    self.blockchain.state.update_balance(self.wallet_address, parameters['block_reward'])
+                    self.blockchain.state.clear_transactions()
+                    self.broadcast_block(block)
+                    logging.info(f"Successfully mined block {new_block_data['block_number']} with hash {new_block_data['block_hash']}")
+
+                else:
+                    logging.error(f"Block validation failed for block {new_block_data['block_number']}")
 
             except Exception as e:
                 logging.error(f"Error during mining: {e}")
 
-            time.sleep(parameters['block_time'])  # Wait before mining the next block
+            time.sleep(parameters['block_time'])
 
     def stop_mining(self):
         """Stops the mining process."""
@@ -66,11 +69,11 @@ class Miner:
 
     def validate_block(self, block_data):
         """Validate the mined block before adding it to the blockchain."""
-        return blockchain.validate_block(block_data)
+        return self.blockchain.validate_block(block_data)
 
     def broadcast_block(self, block_data):
         """Broadcast the mined block to the network."""
-        logging.info(f"Broadcasting block {block_data['index']} to the network.")
+        logging.info(f"Broadcasting block {block_data['block_number']} to the network.")
         self.p2p_network.broadcast({'type': 'block', 'block': block_data})
 
     def start_mining(self):

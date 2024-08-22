@@ -16,7 +16,6 @@ import json
 import os
 import uuid
 from parameters import parameters
-from node import Blockchain
 
 class P2PNetwork:
     def __init__(self, host='0.0.0.0', port=5000):
@@ -77,13 +76,13 @@ class P2PNetwork:
 
         if message_type == 'transaction':
             transaction = message['transaction']
-            response = blockchain.new_transaction(**transaction)
+            response = self.blockchain.new_transaction(**transaction)
             self.broadcast(response, exclude_peer=peer_id)
 
         elif message_type == 'block':
             block = message['block']
-            if blockchain.validate_block(block):
-                blockchain.chain.append(block)
+            if self.blockchain.validate_block(block):
+                self.blockchain.chain.append(block)
                 self.broadcast(block, exclude_peer=peer_id)
 
         elif message_type == 'peer_list':

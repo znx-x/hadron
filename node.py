@@ -15,7 +15,8 @@ from cryptography import Qhash3512
 from parameters import parameters
 from database import BlockchainDatabase
 from state import BlockchainState
-from pow import MineH  # Importing the MineH algorithm
+from miner import Miner
+from network import P2PNetwork
 import logging
 
 # Configure logging
@@ -28,8 +29,8 @@ class Blockchain:
         self.state = BlockchainState()
         self.db = BlockchainDatabase()
         self.miner_wallet_address = parameters.get("miner_wallet_address", "0000000000000000000000000000000000000000")
-        self.mining_thread = None
-        self.pow_algorithm = MineH()  # Initialize MineH algorithm
+        self.p2p_network = P2PNetwork()  # Initialize the P2PNetwork
+        self.miner = Miner(self.miner_wallet_address, self.p2p_network, self)  # Pass the blockchain instance
         logging.info("Blockchain node initializing...")
         self.load_chain()
 
@@ -37,6 +38,7 @@ class Blockchain:
             # Create genesis block with proof 100
             self.new_block(previous_hash='1', proof=100)
             logging.info("Genesis block created.")
+            time.sleep(2)  # Introduce a delay to ensure the genesis block is fully committed
 
         logging.info("Blockchain loaded.")
 
@@ -59,7 +61,7 @@ class Blockchain:
             'state_root': self.state.get_root(),
             'tx_root': self.calculate_merkle_root(self.current_transactions),
             'difficulty': self.calculate_difficulty(),
-            'nonce': proof,  # Set the proof of work result as the nonce
+            'nonce': proof,
             'timestamp': time.time(),
             'miner': self.miner_wallet_address,
             'block_size': self.calculate_block_size(),
@@ -68,9 +70,9 @@ class Blockchain:
         }
 
         self.current_transactions = []
-        self.chain.append(block)
         block_hash = self.hash(block)
         block['block_hash'] = block_hash  # Store the block hash in the block itself
+        self.chain.append(block)
         self.db.save_block(block_hash, block)
         logging.info(f"New block mined: {block_hash} at height {block['block_number']}")
         self.state.clear_transactions()
@@ -159,20 +161,33 @@ class Blockchain:
         block_string = json.dumps(block, sort_keys=True).encode()
         return Qhash3512.generate_hash(block_string.decode())
 
-    def mine_block(self):
-        """Mine a new block using the Proof-of-Work algorithm."""
+    def validate_block(self, block):
+        """Validate a block before adding it to the chain."""
         last_block = self.chain[-1]
-        difficulty = self.calculate_difficulty()
-        block_data = json.dumps(last_block, sort_keys=True)
-        proof = self.pow_algorithm.mine(block_data, difficulty)  # Use MineH algorithm to find the proof
 
-        if self.miner_wallet_address != "0000000000000000000000000000000000000000":
-            self.state.update_balance(self.miner_wallet_address, parameters['block_reward'])
+        # Validate the parent hash
+        if block['parent_hash'] != last_block['block_hash']:
+            logging.error(f"Invalid block: parent hash does not match. Expected {last_block['block_hash']}, got {block['parent_hash']}. Block number: {block['block_number']}")
+            return False
 
-        previous_hash = last_block.get('block_hash', self.hash(last_block))
-        block = self.new_block(proof, previous_hash)
-        self.state.update_state(block)
-        return block
+        # Recreate the block hash using the block data and nonce
+        recalculated_hash = self.hash(block)
+        
+        # Log the entire block for debugging
+        logging.debug(f"Validating block: {json.dumps(block, indent=2)}")
+        logging.debug(f"Expected recalculated hash: {recalculated_hash}")
+
+        # Validate the proof of work
+        if not self.miner.mineh.is_valid_hash(recalculated_hash, block['difficulty']):
+            logging.error(f"Invalid block: proof of work is not valid. Expected hash: {recalculated_hash}, Block hash: {block['block_hash']}. Block number: {block['block_number']}")
+            return False
+
+        logging.info(f"Block {block['block_number']} is valid.")
+        return True
+
+    def mine_block(self):
+        """Delegate mining to the Miner class."""
+        return self.miner.mine()
 
     def run_node(self, shutdown_flag):
         """Run the node and handle the consensus algorithm."""

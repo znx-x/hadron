@@ -35,7 +35,7 @@ class MineH:
             hash_result = hashlib.sha512(combined_data).hexdigest()
 
             if self.is_valid_hash(hash_result, difficulty):
-                return nonce
+                return nonce, hash_result  # Return both nonce and valid hash
             nonce += 1
 
     @staticmethod
@@ -49,3 +49,4 @@ class MineH:
         for i in range(self.memory_size):
             self.memory[i] = random.randint(0, 255)
         self.last_memory_update = time.time()
+
