@@ -11,15 +11,13 @@
 # algorithm that is memory-hard and CPU-friendly.
 
 import os
-import random
 import time
 from cryptography import Qhash3512
 
 class MineH:
-    def __init__(self, memory_size=2**20, memory_update_interval=60):
+    def __init__(self, memory_size=2**22, memory_update_interval=10):
         """
-        Initializes the MineH algorithm with a specific memory size and update interval.
-
+        Initializes the MineH algorithm with a larger memory size and more frequent updates.
         :param memory_size: Size of the memory array used in the algorithm.
         :param memory_update_interval: Time interval (in seconds) to update the memory.
         """
@@ -31,7 +29,6 @@ class MineH:
     def mine(self, block_data: str, difficulty: int):
         """
         Executes the mining process by iterating through nonces until a valid hash is found.
-
         :param block_data: The serialized block data to be hashed.
         :param difficulty: The required difficulty level (number of leading zeros in the hash).
         :return: A tuple containing the valid nonce and the corresponding valid hash.
@@ -61,7 +58,6 @@ class MineH:
     def _get_memory_segment(self, nonce):
         """
         Retrieves a segment of the memory array based on the current nonce.
-
         :param nonce: The current nonce used in the mining process.
         :return: A segment of the memory array as a string.
         """

@@ -36,7 +36,7 @@ class Blockchain:
 
         if len(self.chain) == 0:
             self.new_block(previous_hash='1', proof=100)
-            logging.info("Genesis block created.")
+            logging.info("Genesis block created...")
             time.sleep(2)
 
         logging.info("Blockchain loaded.")

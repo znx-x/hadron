@@ -20,40 +20,38 @@ from parameters import parameters
 class Miner:
     def __init__(self, wallet_address, p2p_network, blockchain):
         self.wallet_address = wallet_address
-        self.mineh = MineH()
+        self.mineh = MineH(memory_size=2**22, memory_update_interval=10)  # Increased memory size
         self.p2p_network = p2p_network
         self.blockchain = blockchain
+        self.is_mining = True
         logging.basicConfig(filename=parameters['log_file'], level=logging.INFO)
 
     def mine(self):
         """Perform the mining process."""
-        while True:
+        while self.is_mining:
             try:
                 last_block = self.blockchain.chain[-1]
                 previous_hash = last_block.get('block_hash', self.blockchain.hash(last_block))
 
-                # Construct the new block data
                 new_block_data = {
                     "block_number": last_block['block_number'] + 1,
                     "transactions": self.blockchain.current_transactions,
                     "parent_hash": previous_hash,
-                    "state_root": self.blockchain.state.get_root(),  # Calculate the state root
-                    "tx_root": self.blockchain.calculate_merkle_root(self.blockchain.current_transactions),  # Calculate the transaction root
+                    "state_root": self.blockchain.state.get_root(),
+                    "tx_root": self.blockchain.calculate_merkle_root(self.blockchain.current_transactions),
                     "timestamp": time.time(),
                     "difficulty": self.blockchain.calculate_difficulty(),
                     "miner": self.wallet_address,
-                    "block_size": 0,  # This will be updated after the nonce and hash are calculated
+                    "block_size": 0,
                     "transaction_count": len(self.blockchain.current_transactions)
                 }
 
                 logging.info(f"→ Starting PoW Hashing (Difficulty: {new_block_data['difficulty']})")
 
-                # Mine and get the nonce and valid hash
                 nonce, valid_hash = self.mineh.mine(json.dumps(new_block_data, sort_keys=True), new_block_data['difficulty'])
                 new_block_data['nonce'] = nonce
-                new_block_data['block_hash'] = valid_hash  # Use the valid hash from the mining process
+                new_block_data['block_hash'] = valid_hash
 
-                # Calculate block size after setting nonce and hash
                 new_block_data['block_size'] = len(json.dumps(new_block_data).encode('utf-8'))
 
                 logging.debug(f"New block data: {json.dumps(new_block_data, indent=2)}")
@@ -68,14 +66,14 @@ class Miner:
                     self.broadcast_block(block)
                     logging.info(f"→ PoW Submission for Block {new_block_data['block_number']} (Status: ✓ Accepted)")
                     logging.info(f"  Hash: {new_block_data['block_hash']}")
-
                 else:
                     logging.error(f"→ Will attempt new PoW for Block {new_block_data['block_number']}")
 
             except Exception as e:
                 logging.error(f"Error during mining: {e}")
 
-            time.sleep(parameters['block_time'])
+            # Remove or reduce sleep to increase CPU usage
+            time.sleep(0.1)  # Lowering sleep time to a small value
 
     def stop_mining(self):
         """Stops the mining process."""
