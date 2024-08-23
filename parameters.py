@@ -53,7 +53,7 @@ parameters = {
     "node_storage_light": 240,  # Number of blocks stored by LIGHT nodes
     
      # Miner-specific parameters
-    "cpu_count": 2,  # Number of CPUs to be used; set to 0 will default to 1
+    "cpu_count": 1,  # Number of CPUs to be used; set to 0 will default to 1
     "sleep_time": 0,  # Time to sleep between mining attempts (set to 0 to remove sleep)
     "memory_usage": 8,  # Amount of memory to allocate per thread in MB; set to 0 will default to 4MB
 
