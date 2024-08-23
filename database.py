@@ -12,10 +12,12 @@
 import sqlite3
 import os
 import logging
+import threading
 from parameters import parameters
 
 class BlockchainDatabase:
     def __init__(self):
+        self.lock = threading.Lock()  # Initialize the lock
         """Initialize the SQLite connection using the specified database file."""
         db_path = os.path.join(parameters["data_directory"], 'blockchain.db')
 
@@ -25,41 +27,43 @@ class BlockchainDatabase:
         self.connection = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.connection.cursor()
         self._initialize_database()
-
+        
     def _initialize_database(self):
         """Load the schema from the schema.sql file and initialize the database."""
-        schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
-        with open(schema_path, 'r') as schema_file:
-            schema = schema_file.read()
-        self.cursor.executescript(schema)
-        self.connection.commit()
+        with self.lock:
+            schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
+            with open(schema_path, 'r') as schema_file:
+                schema = schema_file.read()
+            self.cursor.executescript(schema)
+            self.connection.commit()
         print("[Blockchain] Initialized and ready.")
 
     def save_block(self, block_hash, block_data):
         """Saves a block to the SQLite database using the block hash as the key."""
         try:
-            self.cursor.execute(
-                """
-                INSERT OR REPLACE INTO blocks (
-                    block_hash, block_number, parent_hash, state_root, tx_root,
-                    difficulty, nonce, timestamp, miner, block_size, transaction_count
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    block_hash,
-                    block_data["block_number"],
-                    block_data["parent_hash"],
-                    block_data["state_root"],
-                    block_data["tx_root"],
-                    block_data["difficulty"],
-                    block_data["nonce"],
-                    block_data["timestamp"],
-                    block_data["miner"],
-                    block_data["block_size"],
-                    block_data["transaction_count"],
+            with self.lock:
+                self.cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO blocks (
+                        block_hash, block_number, parent_hash, state_root, tx_root,
+                        timestamp, miner, block_size, transaction_count, difficulty, nonce
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        block_hash,
+                        block_data["block_number"],
+                        block_data["parent_hash"],
+                        block_data["state_root"],
+                        block_data["tx_root"],
+                        block_data["timestamp"],
+                        block_data["miner"],
+                        block_data["block_size"],
+                        block_data["transaction_count"],
+                        block_data["difficulty"],
+                        block_data["nonce"],
+                    )
                 )
-            )
-            self.connection.commit()
+                self.connection.commit()
             print(f"[Blockchain] Added Block to DB: {block_hash}")
         except sqlite3.Error as e:
             print(f"[Blockchain] Error saving block {block_hash}: {e}")
@@ -93,33 +97,34 @@ class BlockchainDatabase:
     def save_transaction(self, transaction):
         """Saves a transaction to the SQLite database."""
         try:
-            self.cursor.execute(
-                """
-                INSERT OR REPLACE INTO transactions (
-                    tx_hash, block_hash, block_number, sender, recipient, value, size,
-                    fee, nonce, input, transaction_index, timestamp, text, token, nft
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    transaction['tx_hash'],
-                    transaction['block_hash'],
-                    transaction['block_number'],
-                    transaction['sender'],
-                    transaction['recipient'],
-                    transaction['value'],
-                    transaction['size'],
-                    transaction['fee'],
-                    transaction['nonce'],
-                    transaction['input'],
-                    transaction['transaction_index'],
-                    transaction['timestamp'],
-                    transaction['text'],
-                    transaction['token'],
-                    transaction['nft'],
+            with self.lock:
+                self.cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO transactions (
+                        tx_hash, block_hash, block_number, sender, recipient, value, size,
+                        fee, nonce, input, transaction_index, timestamp, text, token, nft
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        transaction['tx_hash'],
+                        transaction['block_hash'],
+                        transaction['block_number'],
+                        transaction['sender'],
+                        transaction['recipient'],
+                        transaction['value'],
+                        transaction['size'],
+                        transaction['fee'],
+                        transaction['nonce'],
+                        transaction['input'],
+                        transaction['transaction_index'],
+                        transaction['timestamp'],
+                        transaction['text'],
+                        transaction['token'],
+                        transaction['nft'],
+                    )
                 )
-            )
-            self.connection.commit()
-#            print(f"[Blockchain] Added Transaction to DB: {transaction['tx_hash']}")
+                self.connection.commit()
+            print(f"[Blockchain] Added Transaction to DB: {transaction['tx_hash']}")
         except sqlite3.Error as e:
             print(f"[Blockchain] Error saving transaction {transaction['tx_hash']}: {e}")
 
