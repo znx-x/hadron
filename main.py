@@ -7,6 +7,8 @@
 # from, out of or in connection with the software or the use or
 # other dealings in the software.
 
+# Graphical User Interface (GUI) for the blockchain network.
+
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QVBoxLayout, QWidget, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMenuBar, QMenu
 from PyQt5.QtGui import QIcon

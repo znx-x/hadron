@@ -7,6 +7,9 @@
 # from, out of or in connection with the software or the use or
 # other dealings in the software.
 
+# Parameters and constants used across the protocol. These can be
+# overwritten by a config.json file.
+
 import os
 import argparse
 import json

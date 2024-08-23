@@ -7,6 +7,8 @@
 # from, out of or in connection with the software or the use or
 # other dealings in the software.
 
+# Core blokchain and node initialization and functions.
+
 import json
 import threading
 import time
