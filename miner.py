@@ -62,7 +62,7 @@ class Miner:
                 new_block_data = {
                     "block_number": last_block['block_number'] + 1,
                     "transactions": self.blockchain.current_transactions,
-                    "parent_hash": previous_hash,
+                    "parent_hash": last_block['hash'],
                     "state_root": self.blockchain.state.get_root(),
                     "tx_root": self.blockchain.calculate_merkle_root(self.blockchain.current_transactions),
                     "timestamp": time.time(),
@@ -72,7 +72,7 @@ class Miner:
                     "transaction_count": len(self.blockchain.current_transactions)
                 }
 
-                logging.info(f"New block data created: {new_block_data}")
+#                logging.info(f"New block data created: {new_block_data}")
 
                 nonce, valid_hash = self.mineh.mine(json.dumps(new_block_data, sort_keys=True), new_block_data['difficulty'] // scale_factor)
                 self.total_hashes += nonce
@@ -82,7 +82,7 @@ class Miner:
                 new_block_data['block_hash'] = valid_hash
                 new_block_data['block_size'] = len(json.dumps(new_block_data).encode('utf-8'))
 
-                logging.info(f"Updated block data with nonce and hash: {new_block_data}")
+#                logging.info(f"Updated block data with nonce and hash: {new_block_data}")
 
                 if 'block_number' not in new_block_data:
                     logging.error(f"block_number is missing from new_block_data: {new_block_data}")
