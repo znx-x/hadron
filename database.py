@@ -124,7 +124,7 @@ class BlockchainDatabase:
                     )
                 )
                 self.connection.commit()
-            print(f"[Blockchain] Added Transaction to DB: {transaction['tx_hash']}")
+#            print(f"[Blockchain] Added Transaction to DB: {transaction['tx_hash']}")
         except sqlite3.Error as e:
             print(f"[Blockchain] Error saving transaction {transaction['tx_hash']}: {e}")
 
