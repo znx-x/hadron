@@ -39,7 +39,7 @@ class BlockchainDatabase:
         """Saves a block to the SQLite database using the block hash as the key."""
         try:
              # Log block data before saving
-            logging.info(f"Saving block to database: {block_data}")
+#            logging.info(f"Saving block to database: {block_data}")
 
             self.cursor.execute(
                 """

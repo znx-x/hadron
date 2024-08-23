@@ -59,7 +59,7 @@ class Miner:
             try:
                 last_block = self.blockchain.chain[-1]
                 previous_hash = last_block.get('block_hash', self.blockchain.hash(last_block))
-                logging.info(f"Previous block hash: {previous_hash}")
+#                logging.info(f"Previous block hash: {previous_hash}")
                 new_block_data = {
                     "block_number": last_block['block_number'] + 1,
                     "transactions": self.blockchain.current_transactions,

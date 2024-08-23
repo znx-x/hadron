@@ -185,7 +185,7 @@ class Blockchain:
     def validate_block(self, block):
         last_block = self.chain[-1]
         
-        logging.info(f"Validating block number: {block.get('block_number')}")
+#        logging.info(f"Validating block number: {block.get('block_number')}")
 
         if block['parent_hash'] != last_block['block_hash']:
             return False
