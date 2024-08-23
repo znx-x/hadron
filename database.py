@@ -52,6 +52,8 @@ class BlockchainDatabase:
                     block_hash,
                     block_data["block_number"],
                     block_data["parent_hash"],
+                    block_data["difficulty"],
+                    block_data["nonce"],
                     block_data["state_root"],
                     block_data["tx_root"],
                     block_data["timestamp"],

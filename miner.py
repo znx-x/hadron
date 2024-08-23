@@ -90,7 +90,7 @@ class Miner:
 
                 if self.validate_block(new_block_data):
                     reward_transaction = {
-                        "tx_hash": hash_transaction({
+                        "tx_hash": self.blockchain.hash_transaction({
                             "sender": parameters['system_account'],
                             "recipient": self.wallet_address,
                             "value": parameters['block_reward'],
@@ -105,6 +105,7 @@ class Miner:
                         "value": parameters['block_reward'],
                         "fee": 0,
                         "nonce": 0,
+                        "size": 0,
                         "input": "",
                         "timestamp": time.time(),
                         "block_number": new_block_data['block_number']

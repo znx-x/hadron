@@ -101,9 +101,7 @@ class Blockchain:
 
         def hash_pair(a, b):
             return Qhash3512.generate_hash(a + b)
-
         transaction_hashes = [Qhash3512.generate_hash(json.dumps(tx, sort_keys=True)) for tx in transactions]
-
         while len(transaction_hashes) > 1:
             if len(transaction_hashes) % 2 == 1:
                 transaction_hashes.append(transaction_hashes[-1])
@@ -171,7 +169,7 @@ class Blockchain:
         recalculated_hash = Qhash3512.generate_hash(combined_data)
         return recalculated_hash
     
-    def hash_transaction(transaction):
+    def hash_transaction(self, transaction):
         transaction_data = json.dumps({
             'sender': transaction['sender'],
             'recipient': transaction['recipient'],
