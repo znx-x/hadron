@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS blocks (
     parent_hash TEXT,
     state_root TEXT,
     tx_root TEXT,
+    difficulty INTEGER,
+    nonce TEXT,
     timestamp INTEGER,
     miner TEXT,
     block_size INTEGER,

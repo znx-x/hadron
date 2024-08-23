@@ -62,7 +62,7 @@ class Miner:
                 new_block_data = {
                     "block_number": last_block['block_number'] + 1,
                     "transactions": self.blockchain.current_transactions,
-                    "parent_hash": last_block['hash'],
+                    "parent_hash": previous_hash,
                     "state_root": self.blockchain.state.get_root(),
                     "tx_root": self.blockchain.calculate_merkle_root(self.blockchain.current_transactions),
                     "timestamp": time.time(),
