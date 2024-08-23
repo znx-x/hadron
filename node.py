@@ -178,6 +178,9 @@ class Blockchain:
             'nonce': transaction['nonce'],
             'input': transaction['input'],
             'timestamp': transaction['timestamp'],
+            'difficulty': transaction.get('difficulty', None),
+            'token': transaction.get('token', None),
+            'nft': transaction.get('nft', None)
         }, sort_keys=True)
 
         return Qhash3512.generate_hash(transaction_data)

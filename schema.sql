@@ -1,13 +1,13 @@
 -- Schema for Blocks
 CREATE TABLE IF NOT EXISTS blocks (
     block_hash TEXT PRIMARY KEY,
-    block_number INTEGER,
+    block_number INTEGER NOT NULL,
     parent_hash TEXT,
     state_root TEXT,
     tx_root TEXT,
     difficulty INTEGER,
-    nonce TEXT,
-    timestamp INTEGER,
+    nonce INTEGER,
+    timestamp REAL,
     miner TEXT,
     block_size INTEGER,
     transaction_count INTEGER
@@ -26,11 +26,11 @@ CREATE TABLE IF NOT EXISTS transactions (
     nonce INTEGER,
     input TEXT,
     transaction_index INTEGER,
-    timestamp INTEGER,
+    timestamp REAL,
     text TEXT,
     token TEXT,
     nft TEXT,
-    FOREIGN KEY (block_hash) REFERENCES blocks(block_hash)
+    FOREIGN KEY(block_hash) REFERENCES blocks(block_hash)
 );
 
 -- Schema for Accounts

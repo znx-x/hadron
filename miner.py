@@ -95,8 +95,12 @@ class Miner:
                             "recipient": self.wallet_address,
                             "value": parameters['block_reward'],
                             "fee": 0,
-                            "nonce": 0,
+                            "nonce": 0,  #
+                            "difficulty": new_block_data['difficulty'],
                             "input": "",
+                            "text": "",
+                            "token": None,
+                            "nft": None,
                             "timestamp": time.time(),
                             "block_number": new_block_data['block_number']
                         }),
@@ -105,8 +109,12 @@ class Miner:
                         "value": parameters['block_reward'],
                         "fee": 0,
                         "nonce": 0,
+                        "difficulty": new_block_data['difficulty'],
                         "size": 0,
                         "input": "",
+                        "text": "",
+                        "token": None,
+                        "nft": None, 
                         "timestamp": time.time(),
                         "block_number": new_block_data['block_number']
                     }

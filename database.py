@@ -38,24 +38,21 @@ class BlockchainDatabase:
     def save_block(self, block_hash, block_data):
         """Saves a block to the SQLite database using the block hash as the key."""
         try:
-             # Log block data before saving
-#            logging.info(f"Saving block to database: {block_data}")
-
             self.cursor.execute(
                 """
                 INSERT OR REPLACE INTO blocks (
                     block_hash, block_number, parent_hash, state_root, tx_root,
-                    timestamp, miner, block_size, transaction_count
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    difficulty, nonce, timestamp, miner, block_size, transaction_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     block_hash,
                     block_data["block_number"],
                     block_data["parent_hash"],
-                    block_data["difficulty"],
-                    block_data["nonce"],
                     block_data["state_root"],
                     block_data["tx_root"],
+                    block_data["difficulty"],
+                    block_data["nonce"],
                     block_data["timestamp"],
                     block_data["miner"],
                     block_data["block_size"],
