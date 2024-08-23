@@ -170,6 +170,19 @@ class Blockchain:
 
         recalculated_hash = Qhash3512.generate_hash(combined_data)
         return recalculated_hash
+    
+    def hash_transaction(transaction):
+        transaction_data = json.dumps({
+            'sender': transaction['sender'],
+            'recipient': transaction['recipient'],
+            'value': transaction['value'],
+            'fee': transaction['fee'],
+            'nonce': transaction['nonce'],
+            'input': transaction['input'],
+            'timestamp': transaction['timestamp'],
+        }, sort_keys=True)
+
+        return Qhash3512.generate_hash(transaction_data)
 
     def validate_block(self, block):
         last_block = self.chain[-1]

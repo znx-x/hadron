@@ -59,6 +59,7 @@ class Miner:
             try:
                 last_block = self.blockchain.chain[-1]
                 previous_hash = last_block.get('block_hash', self.blockchain.hash(last_block))
+                logging.info(f"Previous block hash: {previous_hash}")
                 new_block_data = {
                     "block_number": last_block['block_number'] + 1,
                     "transactions": self.blockchain.current_transactions,
@@ -71,7 +72,7 @@ class Miner:
                     "block_size": 0,
                     "transaction_count": len(self.blockchain.current_transactions)
                 }
-
+#                logging.info(f"New block data with parent_hash: {new_block_data}")
 #                logging.info(f"New block data created: {new_block_data}")
 
                 nonce, valid_hash = self.mineh.mine(json.dumps(new_block_data, sort_keys=True), new_block_data['difficulty'] // scale_factor)
@@ -89,7 +90,7 @@ class Miner:
 
                 if self.validate_block(new_block_data):
                     reward_transaction = {
-                        "tx_hash": self.blockchain.hash({
+                        "tx_hash": hash_transaction({
                             "sender": parameters['system_account'],
                             "recipient": self.wallet_address,
                             "value": parameters['block_reward'],
@@ -97,7 +98,7 @@ class Miner:
                             "nonce": 0,
                             "input": "",
                             "timestamp": time.time(),
-                            "block_number": new_block_data['block_number']  # Ensure block_number is set
+                            "block_number": new_block_data['block_number']
                         }),
                         "sender": parameters['system_account'],
                         "recipient": self.wallet_address,
@@ -106,8 +107,9 @@ class Miner:
                         "nonce": 0,
                         "input": "",
                         "timestamp": time.time(),
-                        "block_number": new_block_data['block_number']  # Ensure block_number is set
+                        "block_number": new_block_data['block_number']
                     }
+                    
                     self.blockchain.current_transactions.append(reward_transaction)
                     block = self.blockchain.new_block(
                         proof=new_block_data['nonce'],
