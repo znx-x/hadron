@@ -10,10 +10,11 @@
 # Manages the blockchain's state, including balances and transaction pools.
 
 from collections import defaultdict
-import hashlib
+from cryptography import Qhash3512  # Use the Qhash3512 hash algorithm
 
 class BlockchainState:
-    def __init__(self):
+    def __init__(self, db):
+        self.db = db  # Now expects a db instance directly
         self.balances = defaultdict(int)
         self.accounts = set()  # Index of all accounts with non-zero balances
         self.transaction_pool = []
@@ -125,7 +126,7 @@ class BlockchainState:
     def hash_account(self, address):
         """Hash the account details for the Merkle tree."""
         account_data = f"{address}:{self.balances[address]}"
-        return hashlib.sha256(account_data.encode()).hexdigest()
+        return Qhash3512.generate_hash(account_data)
 
     @staticmethod
     def merkle_tree_root(hash_list):
@@ -134,9 +135,9 @@ class BlockchainState:
             return hash_list[0]
         new_hash_list = []
         for i in range(0, len(hash_list) - 1, 2):
-            new_hash_list.append(hashlib.sha256((hash_list[i] + hash_list[i + 1]).encode()).hexdigest())
+            new_hash_list.append(Qhash3512.generate_hash(hash_list[i] + hash_list[i + 1]))
         if len(hash_list) % 2 == 1:  # Odd number of elements
-            new_hash_list.append(hashlib.sha256((hash_list[-1] + hash_list[-1]).encode()).hexdigest())
+            new_hash_list.append(Qhash3512.generate_hash(hash_list[-1] + hash_list[-1]))
         return BlockchainState.merkle_tree_root(new_hash_list)
 
     def clear_transactions(self):
@@ -148,4 +149,3 @@ class BlockchainState:
         for transaction in block['transactions']:
             self.update_balance(transaction['sender'], -transaction['value'])
             self.update_balance(transaction['recipient'], transaction['value'])
-            

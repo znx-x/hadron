@@ -21,9 +21,6 @@ from parameters import parameters
 from consensus import Consensus
 
 class Miner:
-    DEFAULT_MEMORY_USAGE_MB = 4  # Default memory usage per thread if not specified or invalid
-    DEFAULT_CPU_COUNT = 1  # Default CPU count if not specified or invalid
-
     def __init__(self, wallet_address, p2p_network, blockchain):
         self.wallet_address = wallet_address
         self.p2p_network = p2p_network
@@ -35,34 +32,28 @@ class Miner:
         self.last_hashrate_calc = time.time()
         logging.basicConfig(filename=parameters['log_file'], level=logging.INFO)
 
-        # Validate and adjust memory usage
         self.memory_usage = self.validate_memory_usage(parameters['memory_usage'])
-        
-        # Validate and adjust CPU count
         self.cpu_count = self.validate_cpu_count(parameters['cpu_count'])
-        
-        # Initialize MineH with validated memory usage
         memory_size_bytes = self.memory_usage * (2**20)  # Convert MB to Bytes
         self.mineh = MineH(memory_size=memory_size_bytes, memory_update_interval=10)
 
         self.consensus = Consensus(p2p_network, blockchain, self.mineh)
 
     def validate_memory_usage(self, memory_usage_mb):
-        total_memory_mb = psutil.virtual_memory().available // (2**20)  # Get available memory in MB
+        total_memory_mb = psutil.virtual_memory().available // (2**20)
         if memory_usage_mb <= 0 or memory_usage_mb > total_memory_mb:
-            logging.warning(f"Invalid or excessive memory usage specified ({memory_usage_mb}MB). Defaulting to {self.DEFAULT_MEMORY_USAGE_MB}MB per thread.")
-            return self.DEFAULT_MEMORY_USAGE_MB
+            logging.warning(f"Invalid memory usage specified ({memory_usage_mb}MB). Defaulting to 4MB per thread.")
+            return 4
         return memory_usage_mb
 
     def validate_cpu_count(self, cpu_count):
-        max_cpus = multiprocessing.cpu_count() - 1  # Leave 1 CPU free for system operations
+        max_cpus = multiprocessing.cpu_count() - 1
         if cpu_count <= 0 or cpu_count > max_cpus:
-            logging.warning(f"Invalid or excessive CPU count specified ({cpu_count}). Defaulting to {self.DEFAULT_CPU_COUNT} CPU.")
-            return self.DEFAULT_CPU_COUNT
+            logging.warning(f"Invalid CPU count specified ({cpu_count}). Defaulting to 1 CPU.")
+            return 1
         return cpu_count
 
     def mine(self):
-        """Perform the mining process."""
         scale_factor = 10**8
         while self.is_mining:
             try:
@@ -81,12 +72,9 @@ class Miner:
                     "transaction_count": len(self.blockchain.current_transactions)
                 }
 
-                start_time = time.time()
-                # Ensure difficulty is passed as an integer to the mining process
-                nonce, valid_hash = self.mineh.mine(json.dumps(new_block_data, sort_keys=True), new_block_data['difficulty'] // scale_factor)
-                end_time = time.time()
+                logging.info(f"New block data created: {new_block_data}")
 
-                # Calculate hashrate
+                nonce, valid_hash = self.mineh.mine(json.dumps(new_block_data, sort_keys=True), new_block_data['difficulty'] // scale_factor)
                 self.total_hashes += nonce
                 self.update_hashrate()
 
@@ -94,14 +82,37 @@ class Miner:
                 new_block_data['block_hash'] = valid_hash
                 new_block_data['block_size'] = len(json.dumps(new_block_data).encode('utf-8'))
 
-                logging.debug(f"New block data: {json.dumps(new_block_data, indent=2)}")
+                logging.info(f"Updated block data with nonce and hash: {new_block_data}")
+
+                if 'block_number' not in new_block_data:
+                    logging.error(f"block_number is missing from new_block_data: {new_block_data}")
 
                 if self.validate_block(new_block_data):
+                    reward_transaction = {
+                        "tx_hash": self.blockchain.hash({
+                            "sender": parameters['system_account'],
+                            "recipient": self.wallet_address,
+                            "value": parameters['block_reward'],
+                            "fee": 0,
+                            "nonce": 0,
+                            "input": "",
+                            "timestamp": time.time(),
+                            "block_number": new_block_data['block_number']  # Ensure block_number is set
+                        }),
+                        "sender": parameters['system_account'],
+                        "recipient": self.wallet_address,
+                        "value": parameters['block_reward'],
+                        "fee": 0,
+                        "nonce": 0,
+                        "input": "",
+                        "timestamp": time.time(),
+                        "block_number": new_block_data['block_number']  # Ensure block_number is set
+                    }
+                    self.blockchain.current_transactions.append(reward_transaction)
                     block = self.blockchain.new_block(
                         proof=new_block_data['nonce'],
                         previous_hash=new_block_data['parent_hash']
                     )
-                    # Ensure the miner's account is credited even if it doesn't exist yet
                     self.blockchain.state.update_balance(self.wallet_address, parameters['block_reward'])
                     self.blockchain.state.clear_transactions()
                     self.broadcast_block(block)
@@ -120,24 +131,19 @@ class Miner:
             self.last_hashrate_calc = current_time
 
     def get_hashrate(self):
-        """Return the current hashrate."""
         return self.hashrate
 
     def stop_mining(self):
-        """Stops the mining process."""
         self.is_mining = False
 
     def validate_block(self, block_data):
-        """Validate the mined block before adding it to the blockchain."""
         return self.blockchain.validate_block(block_data)
 
     def broadcast_block(self, block_data):
-        """Broadcast the mined block to the network."""
         logging.info(f"→ Broadcasting Block: {block_data['block_number']}")
         self.p2p_network.broadcast({'type': 'block', 'block': block_data})
 
     def start_mining(self):
-        """Start the mining process using the specified number of CPUs."""
         threads = []
         for _ in range(self.cpu_count):
             mining_thread = threading.Thread(target=self.mine)
@@ -145,4 +151,4 @@ class Miner:
             mining_thread.start()
 
         for thread in threads:
-            thread.join()  # Ensure all threads are executed
+            thread.join()

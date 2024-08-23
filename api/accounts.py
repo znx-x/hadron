@@ -10,12 +10,14 @@
 from flask import Blueprint, request, jsonify
 from wallet import Wallet
 from state import BlockchainState
+from database import BlockchainDatabase  # Import the database
 
 accounts_bp = Blueprint('accounts', __name__)
 
-# Initialize the Wallet and BlockchainState instances
+# Initialize the Wallet, Database, and BlockchainState instances
 wallet = Wallet()
-blockchain_state = BlockchainState()
+db = BlockchainDatabase()  # Create the database instance
+blockchain_state = BlockchainState(db)  # Pass the database instance to BlockchainState
 
 # Create Account
 @accounts_bp.route('/create', methods=['POST'])

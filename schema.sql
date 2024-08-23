@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     sender TEXT,
     recipient TEXT,
     value INTEGER,
-    size INTEGER,  -- Size in kilobytes, acts as gas in Ethereum
-    fee INTEGER,  -- Fee based on size, acts as gas price in Ethereum
+    size INTEGER,
+    fee INTEGER,
     nonce INTEGER,
     input TEXT,
     transaction_index INTEGER,
@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS accounts (
     address TEXT PRIMARY KEY,
     balance INTEGER,
     nonce INTEGER,
-    code_hash TEXT,  -- For smart contracts
-    storage_root TEXT  -- For smart contract storage
+    code_hash TEXT,
+    storage_root TEXT
 );
 
 -- Schema for State
@@ -48,28 +48,28 @@ CREATE TABLE IF NOT EXISTS state (
     FOREIGN KEY (account_address) REFERENCES accounts(address)
 );
 
--- Schema for Contracts (WASM Smart Contracts)
+-- Schema for Contracts
 CREATE TABLE IF NOT EXISTS contracts (
     contract_address TEXT PRIMARY KEY,
     owner_address TEXT,
-    code TEXT,  -- WASM code
+    code TEXT,
     creation_block INTEGER,
     creation_tx_hash TEXT,
     contract_name TEXT,
     contract_version TEXT,
-    contract_metadata TEXT,  -- JSON metadata about the contract
+    contract_metadata TEXT,
     FOREIGN KEY (owner_address) REFERENCES accounts(address)
 );
 
--- Schema for Fungible Tokens (FTs)
+-- Schema for Fungible Tokens
 CREATE TABLE IF NOT EXISTS fts (
     token_id TEXT PRIMARY KEY,
     name TEXT,
     symbol TEXT,
     total_supply INTEGER,
-    max_supply INTEGER,  -- Optional, for capped tokens
+    max_supply INTEGER,
     decimals INTEGER,
-    owner_address TEXT,  -- Address of the token creator
+    owner_address TEXT,
     FOREIGN KEY (owner_address) REFERENCES accounts(address)
 );
 
@@ -93,13 +93,13 @@ CREATE TABLE IF NOT EXISTS ft_allowances (
     FOREIGN KEY (spender_address) REFERENCES accounts(address)
 );
 
--- Schema for Non-Fungible Tokens (NFTs)
+-- Schema for Non-Fungible Tokens
 CREATE TABLE IF NOT EXISTS nfts (
     nft_id TEXT PRIMARY KEY,
     name TEXT,
     symbol TEXT,
-    owner_address TEXT,  -- Address of the NFT creator
-    metadata TEXT,  -- JSON metadata (e.g., URI, traits)
+    owner_address TEXT,
+    metadata TEXT,
     FOREIGN KEY (owner_address) REFERENCES accounts(address)
 );
 

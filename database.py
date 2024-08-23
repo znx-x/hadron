@@ -11,6 +11,7 @@
 
 import sqlite3
 import os
+import logging
 from parameters import parameters
 
 class BlockchainDatabase:
@@ -26,33 +27,10 @@ class BlockchainDatabase:
         self._initialize_database()
 
     def _initialize_database(self):
-        """Initialize the database schema if it doesn't exist."""
-        schema = """
-        CREATE TABLE IF NOT EXISTS blocks (
-            block_hash TEXT PRIMARY KEY,
-            block_number INTEGER,
-            parent_hash TEXT,
-            state_root TEXT,
-            tx_root TEXT,
-            difficulty INTEGER,
-            nonce TEXT,
-            timestamp INTEGER,
-            miner TEXT,
-            block_size INTEGER,
-            transaction_count INTEGER
-        );
-        CREATE TABLE IF NOT EXISTS transactions (
-            tx_hash TEXT PRIMARY KEY,
-            block_hash TEXT,
-            sender TEXT,
-            recipient TEXT,
-            value INTEGER,
-            fee INTEGER,
-            nonce INTEGER,
-            input TEXT,
-            timestamp INTEGER
-        );
-        """
+        """Load the schema from the schema.sql file and initialize the database."""
+        schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
+        with open(schema_path, 'r') as schema_file:
+            schema = schema_file.read()
         self.cursor.executescript(schema)
         self.connection.commit()
         print("[Blockchain] Initialized and ready.")
@@ -60,12 +38,15 @@ class BlockchainDatabase:
     def save_block(self, block_hash, block_data):
         """Saves a block to the SQLite database using the block hash as the key."""
         try:
+             # Log block data before saving
+            logging.info(f"Saving block to database: {block_data}")
+
             self.cursor.execute(
                 """
                 INSERT OR REPLACE INTO blocks (
-                    block_hash, block_number, parent_hash, state_root, tx_root, difficulty, 
-                    nonce, timestamp, miner, block_size, transaction_count
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    block_hash, block_number, parent_hash, state_root, tx_root,
+                    timestamp, miner, block_size, transaction_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     block_hash,
@@ -73,8 +54,6 @@ class BlockchainDatabase:
                     block_data["parent_hash"],
                     block_data["state_root"],
                     block_data["tx_root"],
-                    block_data["difficulty"],
-                    block_data["nonce"],
                     block_data["timestamp"],
                     block_data["miner"],
                     block_data["block_size"],
@@ -118,22 +97,45 @@ class BlockchainDatabase:
             self.cursor.execute(
                 """
                 INSERT OR REPLACE INTO transactions (
-                    tx_hash, block_hash, sender, recipient, value, fee, nonce, input, timestamp
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    tx_hash, block_hash, block_number, sender, recipient, value, size,
+                    fee, nonce, input, transaction_index, timestamp, text, token, nft
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     transaction['tx_hash'],
                     transaction['block_hash'],
+                    transaction['block_number'],
                     transaction['sender'],
                     transaction['recipient'],
                     transaction['value'],
+                    transaction['size'],
                     transaction['fee'],
                     transaction['nonce'],
                     transaction['input'],
+                    transaction['transaction_index'],
                     transaction['timestamp'],
+                    transaction['text'],
+                    transaction['token'],
+                    transaction['nft'],
                 )
             )
-            self.connection.commit()  # Ensure that the transaction is committed to the database
+            self.connection.commit()
             print(f"[Blockchain] Added Transaction to DB: {transaction['tx_hash']}")
         except sqlite3.Error as e:
             print(f"[Blockchain] Error saving transaction {transaction['tx_hash']}: {e}")
+
+    def save_account(self, address, balance, nonce, code_hash=None, storage_root=None):
+        """Saves an account to the database."""
+        try:
+            self.cursor.execute(
+                """
+                INSERT OR REPLACE INTO accounts (
+                    address, balance, nonce, code_hash, storage_root
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (address, balance, nonce, code_hash, storage_root)
+            )
+            self.connection.commit()
+            print(f"[Blockchain] Updated account in DB: {address}")
+        except sqlite3.Error as e:
+            print(f"[Blockchain] Error saving account {address}: {e}")
