@@ -17,9 +17,11 @@ from getpass import getpass
 # Dynamically determine the API URL based on parameters
 API_URL = f"http://localhost:{parameters['port']}"
 
+
 def pretty_print(response):
     """Pretty prints the JSON response."""
     print(json.dumps(response, indent=4, sort_keys=True))
+
 
 def get_input():
     """Handles user input."""
@@ -28,9 +30,11 @@ def get_input():
     except EOFError:
         return "exit"
 
+
 def fetch_coinbase():
     """Fetch the miner's wallet address from parameters."""
     return parameters.get("miner_wallet_address", "N/A")
+
 
 def fetch_block_height():
     """Fetch the current block height from the API."""
@@ -42,13 +46,21 @@ def fetch_block_height():
         print(f"Error fetching block height: {e}")
         return "N/A"
 
+
 def fetch_data_directory():
     """Fetch the data directory path from parameters."""
     return parameters.get("data_directory", "N/A")
 
+
 def handle_command(command):
     """Handles the commands entered by the user."""
     try:
+        # Split the command into parts and define 'cmd' as the first token.
+        parts = command.split()
+        if not parts:
+            return True
+        cmd = parts[0]
+
         # Commands without additional arguments
         if command == "blockchain.info":
             response = requests.get(f"{API_URL}/blockchain/info")
@@ -177,6 +189,20 @@ def handle_command(command):
             })
             pretty_print(response.json())
 
+        elif cmd == "admin.info":
+            response = requests.get(f"{API_URL}/admin/info")
+            pretty_print(response.json())
+
+        elif cmd == "admin.connectPeer" and len(parts) == 2:
+            enode = parts[1]
+            response = requests.post(f"{API_URL}/admin/connectPeer", json={"enode": enode})
+            pretty_print(response.json())
+
+        elif cmd == "admin.disconnectPeer" and len(parts) == 2:
+            enode = parts[1]
+            response = requests.post(f"{API_URL}/admin/disconnectPeer", json={"enode": enode})
+            pretty_print(response.json())
+
         elif command == "exit":
             print("Exiting console...")
             return False
@@ -203,12 +229,13 @@ def main():
     print("")
     print("Type 'exit' at any time to quit the console.")
     print("")
-    
+
     running = True
     while running:
         command = get_input()
         if command:
             running = handle_command(command)
+
 
 if __name__ == "__main__":
     main()
